@@ -493,7 +493,7 @@
   .ppctrl{display:flex;align-items:center;gap:9px;font-size:16px;color:#4a4437}
   .ppctrl select,.ppctrl input[type=date]{padding:8px 12px;font:inherit;font-size:16px;
     border:1px solid var(--rule-strong);border-radius:3px;background:#fff}
-  #prThisWeek{padding:8px 16px;font-size:15px}
+  #prThisWeek,#prNextWeek{padding:8px 16px;font-size:15px}
   .ppctrl input[type=checkbox]{width:20px;height:20px;flex:none;margin:0;cursor:pointer}
   .ppgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:24px}
   .gcard{background:#fff;border:1px solid var(--rule);display:flex;flex-direction:column;
@@ -2491,6 +2491,7 @@ function buildPrintPage(){
        <label class="ppctrl">מתאריך: <input type="date" id="prFrom" value="${from}"></label>
        <label class="ppctrl">עד: <input type="date" id="prTo" value="${to}" min="${from}"></label>
        <button class="ppback" id="prThisWeek">השבוע</button>
+       <button class="ppback" id="prNextWeek">שבוע הבא</button>
      </div>
      <div class="ppctrls">
        <label class="ppctrl">דוח אישי עבור: <select id="prPerson">${personOpts}</select></label>
@@ -2519,6 +2520,11 @@ function buildPrintPage(){
     buildPrintPage();
   };
   $("prThisWeek").onclick = ()=>{ printFrom = null; printTo = null; buildPrintPage(); };
+  $("prNextWeek").onclick = ()=>{
+    printFrom = iso(addD(dayDate(0), 7));
+    printTo   = iso(addD(dayDate(DAYS.length-1), 7));
+    buildPrintPage();
+  };
   $("prPerson").onchange = e=>{ printPerson = e.target.value; buildPrintPage(); };
   $("prPerPage").onchange = e=>{ printPerPage = e.target.checked; };
   document.querySelectorAll("#printPage .gprint").forEach(b=>
