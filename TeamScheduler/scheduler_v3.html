@@ -493,7 +493,7 @@
   .ppctrl{display:flex;align-items:center;gap:9px;font-size:16px;color:#4a4437}
   .ppctrl select,.ppctrl input[type=date]{padding:8px 12px;font:inherit;font-size:16px;
     border:1px solid var(--rule-strong);border-radius:3px;background:#fff}
-  #prThisWeek,#prNextWeek{padding:8px 16px;font-size:15px}
+  #prPrevWeek,#prThisWeek,#prNextWeek{padding:8px 16px;font-size:15px}
   .ppctrl input[type=checkbox]{width:20px;height:20px;flex:none;margin:0;cursor:pointer}
   .ppgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:24px}
   .gcard{background:#fff;border:1px solid var(--rule);display:flex;flex-direction:column;
@@ -2490,6 +2490,7 @@ function buildPrintPage(){
        <label class="ppctrl">פרויקט: <select id="prProj">${projOpts}</select></label>
        <label class="ppctrl">מתאריך: <input type="date" id="prFrom" value="${from}"></label>
        <label class="ppctrl">עד: <input type="date" id="prTo" value="${to}" min="${from}"></label>
+       <button class="ppback" id="prPrevWeek">שבוע קודם</button>
        <button class="ppback" id="prThisWeek">השבוע</button>
        <button class="ppback" id="prNextWeek">שבוע הבא</button>
      </div>
@@ -2517,6 +2518,11 @@ function buildPrintPage(){
     printTo = e.target.value || null;
     const f = printFrom || iso(dayDate(0));
     if ((printTo || iso(dayDate(DAYS.length-1))) < f) printTo = printFrom;   // ignore an End before Start
+    buildPrintPage();
+  };
+  $("prPrevWeek").onclick = ()=>{
+    printFrom = iso(addD(dayDate(0), -7));
+    printTo   = iso(addD(dayDate(DAYS.length-1), -7));
     buildPrintPage();
   };
   $("prThisWeek").onclick = ()=>{ printFrom = null; printTo = null; buildPrintPage(); };
