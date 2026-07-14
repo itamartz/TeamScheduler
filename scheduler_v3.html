@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>לוח משימות צוות</title>
+<style>
+  :root{
+    --ink:#16202b;
+    --paper:#f7f5f0;
+    --rule:#d9d3c7;
+    --rule-strong:#a8a091;
+    --slot-h:26px;
+    --row-pad:6px;
+    --name-col:190px;
+    --day-start:8;
+    --day-end:19;
+    --lane-h:32px;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;background:var(--paper);color:var(--ink);
+    font-family:"Segoe UI","Assistant",system-ui,sans-serif;
+  }
+  header{
+    display:flex;align-items:baseline;gap:24px;
+    padding:18px 24px;border-bottom:2px solid var(--ink);
+  }
+  h1{font-size:19px;margin:0;font-weight:650;letter-spacing:-.01em}
+
+  .crumbs{display:flex;align-items:center;gap:8px;font-size:15px}
+  .crumbs .bc{
+    background:none;border:0;padding:0;font:inherit;font-weight:650;
+    color:var(--ink);cursor:pointer;letter-spacing:-.01em;
+  }
+  .crumbs .bc[data-go]:hover{text-decoration:underline}
+  .crumbs .bc.cur{cursor:default}
+  .crumbs .sep{color:#a29a8b;font-weight:400}
+
+  .hub{display:none;padding:28px 24px 60px}
+  .hub.on{display:block}
+  .hubtitle{font-size:16px;font-weight:650;margin:0 0 20px;letter-spacing:-.01em}
+  .hubhead{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px}
+  .hubhead .hubtitle{margin:0}
+  .viewall{
+    background:var(--ink);color:var(--paper);border:0;
+    padding:8px 16px;font:inherit;font-size:13px;cursor:pointer;border-radius:3px;
+  }
+  .viewall:hover{opacity:.88}
+  .hubgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:18px}
+  .hub .hub{display:block}
+  .hub article.hub{
+    background:#fff;border:1px solid var(--rule);padding:0 0 16px;
+    cursor:pointer;overflow:hidden;transition:border-color .1s,transform .08s;
+  }
+  .hub article.hub:hover{border-color:var(--rule-strong);transform:translateY(-2px)}
+  .hub article.hub:focus-visible{outline:2px solid var(--ink);outline-offset:2px}
+  .hubtop{height:8px}
+  .hub article.hub h2{font-size:16px;font-weight:650;margin:14px 16px 12px;letter-spacing:-.01em}
+  .hubfigs{display:flex;gap:16px;padding:0 16px;flex-wrap:wrap}
+  .hubfigs div{display:flex;flex-direction:column}
+  .hubfigs b{font-size:20px;font-weight:650;line-height:1;font-variant-numeric:tabular-nums}
+  .hubfigs span{font-size:10px;color:#7c7466;margin-top:3px}
+  .nav{display:flex;border:1px solid var(--rule-strong)}
+  .nav button{
+    background:none;border:0;padding:7px 14px;font:inherit;font-size:13px;
+    cursor:pointer;border-inline-start:1px solid var(--rule-strong);line-height:1;
+  }
+  .nav button:first-child{border-inline-start:0}
+  .nav button:hover{background:#ece8df}
+  #range{font-size:13px;color:#7c7466;font-variant-numeric:tabular-nums}
+
+
+  .modes{display:flex;gap:0;margin-inline-start:auto;border:1px solid var(--rule-strong)}
+  .modes button{
+    background:none;border:0;padding:7px 18px;font:inherit;font-size:13px;
+    cursor:pointer;border-inline-start:1px solid var(--rule-strong);
+  }
+  .modes button:first-child{border-inline-start:0}
+  .modes button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+
+  thead th.today{background:#ece8df}
+  thead th.today small{color:var(--ink)}
+
+  .board{overflow:auto;padding:0 0 60px}
+  .board.hidden{display:none}
+
+  /* ---- reverse lookup: per-person agenda ---- */
+  .people{display:none;padding:18px 24px 40px}
+  .people.on{display:block}
+  .pspan{display:inline-flex;border:1px solid var(--rule-strong);margin-bottom:18px}
+  .pspan button{
+    background:none;border:0;padding:6px 16px;font:inherit;font-size:12px;
+    cursor:pointer;border-inline-start:1px solid var(--rule-strong);
+  }
+  .pspan button:first-child{border-inline-start:0}
+  .pspan button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+  .pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:16px}
+  .pcard{background:#fff;border:1px solid var(--rule);padding:12px 14px 14px}
+  .pcard header{display:flex;align-items:baseline;gap:8px;margin-bottom:10px;
+    border-bottom:1px solid var(--rule);padding-bottom:8px}
+  .pcard h2{font-size:15px;font-weight:650;margin:0}
+  .psum{margin-inline-start:auto;font-size:11px;color:#7c7466;font-variant-numeric:tabular-nums}
+  .pnone{font-size:12px;color:#a29a8b;padding:4px 0}
+  .pday{font-size:11px;font-weight:600;color:#7c7466;margin:10px 0 4px;
+    padding-bottom:2px;border-bottom:1px dotted var(--rule)}
+  .prow2{display:flex;align-items:baseline;gap:8px;padding:3px 0;font-size:12px}
+  .pdot{flex:none;width:9px;height:9px;border-radius:2px;transform:translateY(1px)}
+  .ptime{flex:none;font-size:11px;color:#7c7466;font-variant-numeric:tabular-nums;width:92px}
+  .ptitle{flex:1 1 auto;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .penv{flex:none;font-size:9px;text-transform:uppercase;letter-spacing:.03em;
+    color:#8a8378;max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  table{border-collapse:collapse;width:100%;min-width:900px}
+  th,td{border:1px solid var(--rule);vertical-align:top}
+  thead th{
+    position:sticky;top:0;z-index:3;background:var(--paper);
+    border-bottom:2px solid var(--ink);
+    font-size:13px;font-weight:650;padding:8px 6px;text-align:center;
+    font-variant-numeric:tabular-nums;
+  }
+  thead th small{display:block;font-weight:400;color:#7c7466;font-size:11px;font-variant-numeric:normal}
+  th.person,td.person{
+    position:sticky;right:0;z-index:2;background:var(--paper);
+    width:var(--name-col);min-width:var(--name-col);
+    border-inline-start:2px solid var(--ink);
+    text-align:right;padding:10px 12px;
+  }
+  thead th.person{z-index:4}
+  .person .load{display:block;font-size:11px;color:#7c7466;margin-top:6px;font-variant-numeric:tabular-nums}
+
+  /* ---- weekly cell: stacked task chips ---- */
+  td.day{padding:var(--row-pad);min-width:190px}
+  .chip{
+    display:flex;gap:6px;align-items:flex-start;
+    font-size:12px;line-height:1.25;padding:3px 6px;margin-bottom:3px;
+    border-inline-start:3px solid var(--c,#6b7a8f);background:#fff;
+    border-radius:2px;cursor:grab;
+  }
+  .chip time{font-size:10px;color:#7c7466;font-variant-numeric:tabular-nums;flex:none;padding-top:1px}
+  .chip span{
+    font-size:11px;line-height:1.25;overflow:hidden;
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
+  }
+  .chip .env{
+    font-size:8px;font-style:normal;color:#8a8378;
+    text-transform:uppercase;letter-spacing:.03em;margin-inline-start:5px;
+  }
+  .more{font-size:11px;color:#7c7466;padding-inline-start:9px}
+  .empty{min-height:34px}
+
+  /* ---- daily grid: absolute-positioned blocks over hour columns ---- */
+  .daily{display:none;min-width:900px}
+  .daily.on{display:block}
+  .board.week .weekly{display:table}
+  .hours{display:grid;grid-auto-flow:column;grid-auto-columns:1fr}
+  .hours div{
+    border-inline-start:1px solid var(--rule);text-align:center;
+    font-size:11px;padding:6px 0;color:#7c7466;font-variant-numeric:tabular-nums;
+    min-width:0;
+  }
+  .hours div:last-child{border-inline-end:1px solid var(--rule)}
+  .prow{display:flex;border-top:1px solid var(--rule)}
+  .prow > .person{
+    flex:none;position:sticky;right:0;z-index:2;background:var(--paper);
+    width:var(--name-col);min-width:var(--name-col);
+    border-inline-start:2px solid var(--ink);
+    display:flex;align-items:center;justify-content:flex-start;
+    text-align:right;padding:10px 12px;
+  }
+  .prow > .person.dayhead{font-weight:650;font-size:13px}
+  .track{position:relative;flex:1;min-width:0;min-height:calc(var(--lane-h) * 2)}
+  .track .gl{
+    position:absolute;top:0;bottom:0;width:0;
+    border-inline-start:1px solid var(--rule);pointer-events:none;
+  }
+  .track .gl.half{border-inline-start-style:dotted;opacity:.55}
+  .block{
+    position:absolute;height:calc(var(--lane-h) - 6px);
+    box-sizing:border-box;max-width:100%;
+    background:#fff;border:1px solid var(--rule-strong);
+    border-inline-start:3px solid var(--c,#6b7a8f);
+    font-size:11px;padding:2px 5px;overflow:hidden;
+    border-radius:2px;cursor:grab;
+    display:flex;align-items:baseline;gap:6px;
+  }
+  .block .bt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto}
+  .block .benv{
+    flex:0 0 auto;font-size:8px;text-transform:uppercase;letter-spacing:.03em;
+    color:#8a8378;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:45%;
+  }
+  .block:focus-visible,.chip:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+
+  /* ---- daily: orientation switch ---- */
+  .orient{display:inline-flex;border:1px solid var(--rule-strong);margin:14px 24px 4px}
+  .orient button{
+    background:none;border:0;padding:5px 14px;font:inherit;font-size:12px;
+    cursor:pointer;border-inline-start:1px solid var(--rule-strong);
+  }
+  .orient button:first-child{border-inline-start:0}
+  .orient button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+
+  /* ---- daily vertical: people as columns, time down ---- */
+  .daily.vert{min-width:0}
+  .vgrid{
+    display:flex;align-items:flex-start;
+    overflow-x:auto;
+    padding:0 0 40px;margin:0 24px;
+  }
+  .vaxis{
+    flex:none;width:64px;
+    position:sticky;right:0;z-index:20;
+    background:var(--paper);
+    box-shadow:-1px 0 0 var(--rule-strong);
+  }
+  .vticks{position:relative}
+  .tick{
+    position:absolute;right:0;
+    font-size:11px;color:#7c7466;font-variant-numeric:tabular-nums;
+    padding-inline-end:8px;width:100%;text-align:left;
+    height:13px;line-height:13px;
+    margin-top:1px;
+  }
+  .tick.half{font-size:9px;color:#b3ab9c}
+  .vcols{display:flex;flex:1;min-width:0}
+  .vcol{flex:1 0 170px;min-width:170px;border-inline-end:1px solid var(--rule)}
+  .vcol:last-child{border-inline-end:0}
+  .vhead,.vcorner{
+    height:42px;box-sizing:border-box;
+    display:flex;align-items:center;justify-content:center;
+    padding:0 8px;font-size:14px;font-weight:600;
+    border-bottom:2px solid var(--ink);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    position:sticky;top:0;background:var(--paper);
+  }
+  .vhead{z-index:5}
+  .vcorner{justify-content:flex-end;padding-inline-end:6px;z-index:25}
+  .vtrack{position:relative;border-bottom:1px solid var(--rule)}
+  .hl{
+    position:absolute;left:0;right:0;height:0;
+    border-top:1px solid var(--rule);pointer-events:none;
+  }
+  .hl.half{border-top-style:dotted;opacity:.55}
+  .vblock{
+    position:absolute;box-sizing:border-box;overflow:hidden;
+    background:#fff;border:1px solid var(--rule-strong);
+    border-inline-start:4px solid var(--c);border-radius:3px;
+    padding:5px 7px;cursor:grab;
+  }
+  .vblock b{
+    display:block;font-size:12px;font-weight:550;line-height:1.3;
+    overflow:hidden;
+    display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:4;
+  }
+  .vblock time{font-size:10px;color:#7c7466;font-variant-numeric:tabular-nums;margin-top:2px;display:block}
+  /* environment chip (Option G): inline by default, corner overlay on day blocks */
+  .envchip{
+    display:inline-block;
+    padding:1px 6px;font-size:8px;line-height:1.5;
+    text-transform:uppercase;letter-spacing:.03em;
+    color:#fff;border-radius:3px;
+    max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+    text-shadow:0 1px 1px rgba(0,0,0,.35);vertical-align:middle;
+  }
+  .vblock .envchip, .block .envchip{
+    position:absolute;bottom:0;left:0;right:auto;
+    border-radius:0;border-start-end-radius:4px;max-width:70%;
+  }
+  .vblock.short{padding:3px 6px 16px}
+  .vblock.short b{
+    font-size:11px;line-height:1.2;-webkit-line-clamp:2;
+  }
+  .vblock:focus-visible{outline:2px solid var(--ink);outline-offset:1px}
+  @media (prefers-reduced-motion:no-preference){
+    .vblock{transition:transform .08s}
+    .vblock:hover{transform:translateY(-1px)}
+  }
+
+  /* ---- projects: portfolio cards ---- */
+  .projects{display:none;padding:18px 24px 40px}
+  .projects.on{display:block}
+
+  .ptoolbar{display:flex;align-items:center;gap:18px;margin-bottom:18px;flex-wrap:wrap}
+  .scope{display:inline-flex;border:1px solid var(--rule-strong)}
+  .scope button{
+    background:none;border:0;padding:6px 16px;font:inherit;font-size:12px;
+    cursor:pointer;border-inline-start:1px solid var(--rule-strong);
+  }
+  .scope button:first-child{border-inline-start:0}
+  .scope button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+  .showclosed{display:flex;align-items:center;gap:6px;font-size:12px;color:#7c7466;cursor:pointer}
+
+  .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px}
+  .card{
+    background:#fff;border:1px solid var(--rule);
+    border-top:3px solid var(--c);padding:14px 16px 14px;
+    display:flex;flex-direction:column;
+  }
+  .card.closed{background:#faf9f6;border-top-color:var(--rule-strong)}
+  .card.closed h2{color:#7c7466}
+  .card header{display:flex;align-items:flex-start;gap:8px;margin-bottom:12px}
+  .htext{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .crumb{font-size:10px;color:#9a9284;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .card h2{font-size:15px;font-weight:650;margin:0;letter-spacing:-.01em}
+  .badge{
+    font-size:10px;padding:1px 6px;border:1px solid var(--rule-strong);
+    color:#7c7466;border-radius:2px;
+  }
+  .card .share{margin-inline-start:auto;font-size:11px;color:#7c7466;font-variant-numeric:tabular-nums}
+
+  .act{
+    margin-top:12px;align-self:flex-start;
+    background:none;border:1px solid var(--rule-strong);
+    padding:5px 12px;font:inherit;font-size:11px;cursor:pointer;border-radius:2px;
+  }
+  .act:hover{background:#f0ece3}
+
+  .figs{display:flex;gap:20px;margin-bottom:12px}
+  .figs div{display:flex;flex-direction:column}
+  .figs b{font-size:19px;font-weight:650;line-height:1.1;font-variant-numeric:tabular-nums}
+  .figs span{font-size:10px;color:#7c7466;margin-top:2px}
+
+  .trend{display:block;width:100%;height:22px;margin-bottom:14px}
+
+  .roster{margin-bottom:12px}
+  .who{display:flex;align-items:center;gap:8px;margin-bottom:5px;font-size:12px}
+  .who .nm{flex:none;width:70px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .who .bar{flex:1;height:6px;background:#efece5;border-radius:1px;overflow:hidden}
+  .who .bar i{display:block;height:100%}
+  .who .hr{flex:none;font-size:10px;color:#7c7466;font-variant-numeric:tabular-nums;width:44px;text-align:left}
+  .more-who .nm{color:#a29a8b;font-style:italic}
+  .none{font-size:11px;color:#a29a8b;padding:6px 0}
+
+  .top{list-style:none;margin:0;padding:10px 0 0;border-top:1px solid var(--rule);margin-top:auto}
+  .top li{display:flex;gap:8px;font-size:11px;padding:3px 0;color:#5c5548;align-items:baseline}
+  .top li span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .top li b{margin-inline-start:auto;flex:none;font-weight:500;color:#7c7466;font-variant-numeric:tabular-nums}
+
+  .nav button:disabled{opacity:.35;cursor:default}
+  .nav button:disabled:hover{background:none}
+</style>
+</head>
+<body>
+<header>
+  <nav id="crumbs" class="crumbs" aria-label="ניווט היררכי"></nav>
+
+  <div class="nav" role="group" aria-label="ניווט תאריכים">
+    <button id="prev" aria-label="הקודם">‹</button>
+    <button id="today">היום</button>
+    <button id="next" aria-label="הבא">›</button>
+  </div>
+  <span id="range"></span>
+
+  <div class="modes" role="group" aria-label="תצוגה">
+    <button id="btnProj" aria-pressed="false">פרויקטים</button>
+    <button id="btnPeople" aria-pressed="false">לפי אדם</button>
+    <button id="btnWeek" aria-pressed="true">שבועי</button>
+    <button id="btnDay" aria-pressed="false">יומי</button>
+  </div>
+</header>
+
+<div class="hub on" id="hub"></div>
+
+<div class="board week hidden" id="board">
+  <table class="weekly" id="weekly"></table>
+  <div class="daily" id="daily"></div>
+  <div class="projects" id="projects"></div>
+  <div class="people" id="peopleview"></div>
+</div>
+
+<script>
+// ---------- data shape (mirrors the future SQLite schema) ----------
+// people(id, name, role)
+// tasks(id, person_id, title, start_ts, duration_min, color)
+const DAY_START = 8, DAY_END = 19;
+const DAYS = ["ראשון","שני","שלישי","רביעי","חמישי"];
+
+// ---- date helpers ----
+const iso = d => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const addD  = (d,n) => { const x = new Date(d); x.setDate(x.getDate()+n); return x; };
+const fmtDM = d => `${d.getDate()}/${d.getMonth()+1}`;
+const fmtLong = d => d.toLocaleDateString("he-IL",{day:"numeric",month:"long",year:"numeric"});
+
+// Sunday of the week containing d (Israeli week starts Sunday)
+const weekStart = d => addD(d, -d.getDay());
+
+// Fri(5)/Sat(6) are non-working: land on the upcoming Sunday instead.
+// Returns {anchor, dayIndex} for any date.
+function resolveWorkday(d){
+  const dow = d.getDay();
+  if (dow >= DAYS.length) return { anchor: weekStart(addD(d, 7-dow)), dayIndex: 0 };
+  return { anchor: weekStart(d), dayIndex: dow };
+}
+
+const _t = resolveWorkday(new Date());
+let anchor = _t.anchor;
+let currentDay = _t.dayIndex;
+
+const dayDate = i => addD(anchor, i);
+
+const people = [
+  {id:1, name:"נועה לוי"},
+  {id:2, name:"אבי כהן"},
+  {id:3, name:"מיכל ברק"},
+  {id:4, name:"רון שגב"},
+  {id:5, name:"תמר אזולאי"},
+  {id:6, name:"יוסי מזרחי"},
+  {id:7, name:"שירה פרידמן"},
+  {id:8, name:"דני אלמוג"},
+  {id:9, name:"ליאת בן־דוד"},
+  {id:10,name:"עומר קפלן"},
+  {id:11,name:"הדר שמש"},
+  {id:12,name:"גיא רוזן"},
+  {id:13,name:"מאיה טל"},
+  {id:14,name:"אורי גלבוע"},
+  {id:15,name:"רותם נחום"},
+  {id:16,name:"אלון ביטון"},
+  {id:17,name:"יעל דרור"},
+  {id:18,name:"ניר שפירא"},
+  {id:19,name:"אפרת חדד"},
+  {id:20,name:"עידו לנדאו"},
+];
+
+// projects(id, name, color, status, created_at, closed_at)
+// status: 'active' | 'closed'
+// ---- hierarchy: Customer > Domain/Environment > Project > Task ----
+// Every level carries a `color` that is either a solid hex string
+//   "#3f6d8f"
+// or a gradient object
+//   { type:"linear", angle:135, stops:["#f83600","#f9d423"] }
+// Tasks store only project_id; everything else resolves upward.
+
+const customers = [
+  { id:1, name:"בנק הפועלים",    color:"#2f5d8f" },
+  { id:2, name:"כללית בריאות",   color:{type:"linear",angle:135,stops:["#0b8793","#360033"]} },
+  { id:3, name:"רשות המסים",     color:"#7a5170" },
+];
+
+const domains = [
+  // customer 1
+  { id:1, customer_id:1, name:"Production",  color:{type:"linear",angle:135,stops:["#ff0000","#ff9a00","#d0de21","#4fdc4a","#3fdad8","#2fc9e2","#1c7fee","#5f15f2","#ba0cf8","#fb07d9"]} },
+  { id:2, customer_id:1, name:"Test",        color:"#f4c20d" },
+  // customer 2
+  { id:3, customer_id:2, name:"Cloud",       color:{type:"linear",angle:120,stops:["#11998e","#38ef7d"]} },
+  { id:4, customer_id:2, name:"On-Prem",     color:"#42705a" },
+  // customer 3
+  { id:5, customer_id:3, name:"Production",  color:"#9c5f3f" },
+];
+
+const projects = [
+  // domain 1 (Bank / Prod)
+  { id:1, domain_id:1, name:"מיגרציה לענן",  status:"active", color:"#3f6d8f" },
+  { id:2, domain_id:1, name:"הקשחת אבטחה",   status:"active", color:{type:"linear",angle:135,stops:["#c31432","#240b36"]} },
+  // domain 2 (Bank / Test)
+  { id:3, domain_id:2, name:"ניטור ותשתית",  status:"active", color:"#42705a" },
+  // domain 3 (Clalit / Cloud)
+  { id:4, domain_id:3, name:"תמיכה שוטפת",   status:"active", color:{type:"linear",angle:90,stops:["#8e2de2","#4a00e0"]} },
+  { id:5, domain_id:3, name:"אינטגרציית API", status:"active", color:"#0b8793" },
+  // domain 4 (Clalit / On-Prem)
+  { id:6, domain_id:4, name:"שדרוג מסדי נתונים", status:"active", color:"#2c7744" },
+  // domain 5 (Tax / Prod)
+  { id:7, domain_id:5, name:"דוחות שנתיים",   status:"active", color:{type:"linear",angle:135,stops:["#f83600","#f9d423"]} },
+  { id:8, domain_id:5, name:"מודרניזציה",     status:"closed", color:"#9c5f3f" },
+];
+
+const custById   = Object.fromEntries(customers.map(c=>[c.id,c]));
+const domainById = Object.fromEntries(domains.map(d=>[d.id,d]));
+
+// Environments must not share a colour — a duplicate makes two envs indistinguishable
+// on the board. Guard runs at load and would fire when new environments are added.
+(function assertUniqueEnvColors(){
+  const key = c => typeof c === "string"
+    ? c.toLowerCase()
+    : "grad:" + (c.angle ?? "") + ":" + c.stops.join(",").toLowerCase();
+  const seen = {};
+  for (const d of domains){
+    const k = key(d.color);
+    if (seen[k]) console.error(`environment colour collision: "${d.name}" == "${seen[k]}"`);
+    seen[k] = d.name;
+  }
+})();
+const projById   = Object.fromEntries(projects.map(p=>[p.id,p]));
+
+// resolve a task's chain
+const domainOf   = p => domainById[p.domain_id];
+const customerOf = d => custById[d.customer_id];
+const chainOf = projId => {
+  const pr = projById[projId];
+  const dm = pr && domainOf(pr);
+  const cu = dm && customerOf(dm);
+  return { project:pr, domain:dm, customer:cu };
+};
+
+const isActive = p => p.status === "active";
+
+// ---- color: solid or gradient, rendered as a CSS value ----
+let gradSeq = 0;
+function cssColor(c){
+  if (!c) return "#8a8378";
+  if (typeof c === "string") return c;
+  const stops = c.stops.join(", ");
+  const angle = c.angle ?? 135;
+  return `linear-gradient(${angle}deg, ${stops})`;
+}
+// solid fallback (for the 3px accent bar, chips that can't take a gradient border, SVG)
+function flatColor(c){
+  if (!c) return "#8a8378";
+  return typeof c === "string" ? c : c.stops[0];
+}
+const isGradient = c => c && typeof c !== "string";
+
+// Inline style for a task's leading accent: a solid border for solids,
+// a gradient border-image for gradients (borders can't take a gradient directly).
+// Option G: the leading bar is the PROJECT colour; the environment shows as a
+// small corner tag on the block.
+function projColor(t){
+  const { project } = chainOf(t.project_id);
+  if (project && !isActive(project)) return "#a8a091";
+  return (project&&project.color) || "#8a8378";
+}
+function accentStyle(t){
+  const c = projColor(t);
+  if (isGradient(c))
+    return `border-inline-start:4px solid transparent;border-image:${cssColor(c)} 1;`;
+  return `--c:${c};`;
+}
+// environment colour, for the corner chip background
+function envColor(t){
+  const dm = domainOf(projById[t.project_id]);
+  return dm ? dm.color : "#8a8378";
+}
+// corner chip: short environment name on its own colour
+function envChip(t){
+  const dm = domainOf(projById[t.project_id]);
+  if (!dm) return "";
+  return `<span class="envchip" style="background:${cssColor(dm.color)}">${dm.name}</span>`;
+}
+
+// A task's ENVIRONMENT colour (kept for anything still keyed on it).
+function taskColor(t){
+  const { project, domain, customer } = chainOf(t.project_id);
+  if (project && !isActive(project)) return "#a8a091";
+  return (domain&&domain.color) || (project&&project.color) || (customer&&customer.color);
+}
+
+// full "customer › environment › project" chain, for tooltips
+function chainLabel(t){
+  const { project, domain, customer } = chainOf(t.project_id);
+  return [customer&&customer.name, domain&&domain.name, project&&project.name]
+    .filter(Boolean).join(" › ");
+}
+// short environment tag shown on the block
+function envTag(t){
+  const dm = domainOf(projById[t.project_id]);
+  if (!dm) return "";
+  // when the current view spans more than one customer, "Production" is ambiguous
+  // between customers, so prefix the customer name
+  if (nav.level !== "board" || nav.customerId == null){
+    const cu = customerOf(dm);
+    return cu ? `${cu.name} · ${dm.name}` : dm.name;
+  }
+  return dm.name;
+}
+
+// task titles drawn from the owning project's vocabulary
+const TITLE_POOL = [
+  "פריסת גרסה חדשה לסביבת ייצור","העברת נתונים היסטוריים לאחסון ענן",
+  "בדיקת תאימות מול שירותי צד שלישי","תכנון ארכיטקטורת רשת לאזור החדש",
+  "מיפוי תלויות בין שירותי המיקרו","בדיקת חדירה לממשקי ניהול פנימיים",
+  "אישור הרשאות גישה לצוותי פיתוח","סקירת לוגים לאיתור חריגות אבטחה",
+  "עדכון מדיניות סיסמאות בכלל הארגון","ניטור אשכול קוברנטיס בסביבת בדיקות",
+  "גיבוי שרתי מסד הנתונים הראשיים","תחקיר תקלת רשת באזור הצפוני",
+  "כיול ספי התראה במערכת הניטור","קריאת שירות דחופה ממחלקת הכספים",
+  "הדרכת צוות חדש על מערכת הכרטוס","עדכון תיעוד תהליכי עבודה פנימיים",
+];
+const TITLES = Object.fromEntries(projects.map(p => [p.id, TITLE_POOL]));
+
+// Deterministic mock: same (person, date) always yields the same tasks.
+// Replace this whole block with: fetch(`/api/tasks?from=${iso(anchor)}&to=${iso(addD(anchor,5))}`)
+const cache = new Map();
+let tid = 1;
+
+function tasksFor(pid, date){
+  const key = pid + "|" + iso(date);
+  if (cache.has(key)) return cache.get(key);
+
+  let seed = 0;
+  for (const ch of key) seed = (seed*31 + ch.charCodeAt(0)) % 2147483647;
+  seed = seed || 7;
+  const rnd = () => (seed = seed*1103515245 % 2147483647) / 2147483647;
+
+  const out = [];
+  let cursor = DAY_START * 60;
+  const n = 4 + Math.floor(rnd()*4);   // 4–7 tasks per person per day
+
+  // Each person has a home customer and a primary project within it. Most tasks stay
+  // home; a few stray. Every 4th person is a "split" role that works two customers.
+  const homeCust = ((pid-1) % customers.length) + 1;
+  const split = true;   // demo: everyone spans customers
+  const homeProjIds = projects.filter(p => {
+    const d = domainById[p.domain_id];
+    return d && d.customer_id === homeCust && isActive(p);
+  }).map(p=>p.id);
+  const primary = homeProjIds[(pid) % homeProjIds.length] || projects[0].id;
+  // a secondary customer's projects, deterministic per person
+  const secondCust = ((homeCust) % customers.length) + 1;
+  const secondProjIds = projects.filter(p => {
+    const d = domainById[p.domain_id];
+    return d && d.customer_id === secondCust && isActive(p);
+  }).map(p=>p.id);
+  const allActive = projects.filter(isActive).map(p=>p.id);
+
+  for (let i = 0; i < n && cursor < DAY_END*60 - 30; i++){
+    const dur = rnd() < .55 ? 30 : 60;
+    const r = rnd();
+    let proj;
+    if (r < 0.5) proj = primary;                                   // half on the primary
+    else if (r < 0.7)                                              // other env, home customer
+      proj = homeProjIds[Math.floor(rnd()*homeProjIds.length)] || primary;
+    else if (r < 0.9 && secondProjIds.length)                     // secondary customer
+      proj = secondProjIds[Math.floor(rnd()*secondProjIds.length)];
+    else proj = allActive[Math.floor(rnd()*allActive.length)];    // occasional third
+    const vocab = TITLES[proj];
+    out.push({
+      id: tid++, person_id: pid, date: iso(date), project_id: proj,
+      start_min: cursor, duration_min: dur,
+      title: vocab[Math.floor(rnd()*vocab.length)]
+    });
+    cursor += dur + (rnd() < .3 ? 30 : 0);
+  }
+  cache.set(key, out);
+  return out;
+}
+
+const hhmm = m => String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
+
+// narrow columns can't hold a full name: "נועה לוי" -> "נועה ל׳"
+function shortName(n){
+  const parts = n.split(" ");
+  if (parts.length < 2 || n.length <= 9) return n;
+  return `${parts[0]} ${parts[1][0]}׳`;
+}
+const forDay = (pid,i) => tasksFor(pid, dayDate(i)).filter(inScope).slice().sort((a,b)=>a.start_min-b.start_min);
+
+// week totals for the anchored week
+function weekStats(pid){
+  let min = 0, count = 0;
+  for (let i = 0; i < DAYS.length; i++){
+    for (const t of tasksFor(pid, dayDate(i))){ min += t.duration_min; count++; }
+  }
+  return {min, count};
+}
+
+const CAPACITY = 8 * 60;   // a bookable workday; the 08–19 window is wider than this on purpose
+
+// ---- project aggregation ----
+// Scope: the anchored week, or a rolling lifetime window around it.
+const LIFETIME_WEEKS_BACK = 6, LIFETIME_WEEKS_FWD = 2;
+
+function scopeDates(allTime){
+  const out = [];
+  const from = allTime ? -7*LIFETIME_WEEKS_BACK : 0;
+  const to   = allTime ?  7*LIFETIME_WEEKS_FWD  : 0;
+  for (let w = from; w <= to; w += 7)
+    for (let i = 0; i < DAYS.length; i++) out.push(addD(anchor, w + i));
+  return out;
+}
+
+// Everything a project card needs, over the given dates.
+function projectStats(projId, dates){
+  let min = 0, count = 0;
+  const byPerson = {};          // person_id -> minutes
+  const byTitle  = {};          // task title -> minutes
+  const byDay    = new Map();   // iso -> minutes  (for the trend strip)
+
+  for (const d of dates){
+    const key = iso(d);
+    let dayMin = 0;
+    for (const p of people){
+      for (const t of tasksFor(p.id, d)){
+        if (t.project_id !== projId) continue;
+        min += t.duration_min; count++;
+        byPerson[p.id] = (byPerson[p.id]||0) + t.duration_min;
+        byTitle[t.title] = (byTitle[t.title]||0) + t.duration_min;
+        dayMin += t.duration_min;
+      }
+    }
+    byDay.set(key, dayMin);
+  }
+
+  const roster = Object.entries(byPerson)
+    .map(([pid,m]) => ({ pid:+pid, min:m, share: min ? m/min : 0 }))
+    .sort((a,b) => b.min - a.min);
+
+  const tasks = Object.entries(byTitle)
+    .map(([title,m]) => ({ title, min:m }))
+    .sort((a,b) => b.min - a.min);
+
+  return { min, count, roster, tasks, byDay };
+}
+
+// ---------- weekly: person rows × day columns ----------
+const MAX_CHIPS = 3;
+function renderWeek(){
+  const todayIso = iso(new Date());
+  const head = `<thead><tr><th class="person">שם</th>${
+    DAYS.map((d,i)=>{
+      const dt = dayDate(i);
+      const isToday = iso(dt) === todayIso;
+      return `<th${isToday?' class="today"':""}>${fmtDM(dt)}<small>${d}</small></th>`;
+    }).join("")}</tr></thead>`;
+
+  const body = people.map(p=>{
+    const {min,count} = weekStats(p.id);
+    return `<tr>
+    <td class="person">${p.name}
+      <span class="load">${(min/60).toFixed(1)} ש׳ · ${count} משימות</span></td>
+    ${DAYS.map((_,d)=>{
+      const list = forDay(p.id,d);
+      if(!list.length) return `<td class="day empty"></td>`;
+      const shown = list.slice(0,MAX_CHIPS).map(t=>
+        `<div class="chip" style="${accentStyle(t)}" tabindex="0" draggable="true" data-id="${t.id}"
+           title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}">
+           <time>${hhmm(t.start_min)}</time><span>${t.title} ${envChip(t)}</span></div>`).join("");
+      const rest = list.length - MAX_CHIPS;
+      return `<td class="day">${shown}${rest>0?`<div class="more">+${rest} נוספות</div>`:""}</td>`;
+    }).join("")}
+  </tr>`;
+  }).join("");
+
+  document.getElementById("weekly").innerHTML = head + `<tbody>${body}</tbody>`;
+}
+
+// ---------- daily: lane-packed blocks on an hour grid ----------
+function lanes(list){
+  const ends = [];
+  list.forEach(t=>{
+    let l = ends.findIndex(e => e <= t.start_min);
+    if (l === -1){ l = ends.length; ends.push(0); }
+    ends[l] = t.start_min + t.duration_min;
+    t._lane = l;
+  });
+  return Math.max(1, ends.length);
+}
+let dayVertical = true;   // true = vertical (time down, default), false = horizontal (time across)
+
+const PX_PER_MIN = 2.0;   // vertical scale: 30min -> 60px, 60min -> 120px (fits full titles on a large screen)
+
+function renderDayHorizontal(){
+  const SPAN = DAY_END - DAY_START;
+  const hours = [];
+  for (let h = DAY_START; h < DAY_END; h++) hours.push(`<div>${String(h).padStart(2,"0")}:00</div>`);
+
+  let gl = "";
+  for (let i = 0; i <= SPAN; i++){
+    gl += `<div class="gl" style="right:${i*100/SPAN}%"></div>`;
+    if (i < SPAN) gl += `<div class="gl half" style="right:${(i+0.5)*100/SPAN}%"></div>`;
+  }
+
+  const rows = people.map(p=>{
+    const list = forDay(p.id,currentDay);
+    const n = lanes(list);
+    const blocks = list.map(t=>{
+      const startMin = Math.max(t.start_min, DAY_START*60);
+      const endMin   = Math.min(t.start_min + t.duration_min, DAY_END*60);
+      const left  = ((startMin - DAY_START*60)/60)*100/SPAN;
+      const width = Math.max(0,(endMin - startMin)/60)*100/SPAN;
+      return `<div class="block" tabindex="0" draggable="true" data-id="${t.id}" style="${accentStyle(t)}
+        right:${left}%;width:${Math.min(width, 100-left)}%;top:${t._lane*32+3}px"
+        title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}"><span class="bt">${t.title}</span>${envChip(t)}</div>`;
+    }).join("");
+    return `<div class="prow">
+      <div class="person">${p.name}</div>
+      <div class="track" style="min-height:${n*32+6}px">${gl}${blocks}</div></div>`;
+  }).join("");
+
+  return `<div class="prow" style="border-top:0">
+       <div class="person dayhead" style="border-bottom:0">${DAYS[currentDay]}</div>
+       <div class="hours" style="flex:1;min-width:0">${hours.join("")}</div>
+     </div>${rows}`;
+}
+
+function renderDayVertical(){
+  const SPAN = (DAY_END - DAY_START) * 60;
+  const H = Math.round(SPAN * PX_PER_MIN);
+  const y = min => Math.round((min - DAY_START*60) * PX_PER_MIN);
+
+  let axis = "";
+  for (let h = DAY_START; h <= DAY_END; h++){
+    axis += `<div class="tick" style="top:${y(h*60)}px">${String(h).padStart(2,"0")}:00</div>`;
+    if (h < DAY_END)
+      axis += `<div class="tick half" style="top:${y(h*60+30)}px">:30</div>`;
+  }
+
+  let gl = "";
+  for (let h = DAY_START; h < DAY_END; h++){
+    gl += `<div class="hl" style="top:${y(h*60)}px"></div>`;
+    gl += `<div class="hl half" style="top:${y(h*60+30)}px"></div>`;
+  }
+
+  const cols = people.map(p=>{
+    const list = forDay(p.id,currentDay);
+    const n = lanes(list);
+    const blocks = list.map(t=>{
+      const startMin = Math.max(t.start_min, DAY_START*60);
+      const endMin   = Math.min(t.start_min + t.duration_min, DAY_END*60);
+      const top = y(startMin);
+      const hgt = Math.max(0, y(endMin) - top);
+      const w = 100 / n;
+      const short = (endMin - startMin) <= 30;
+      return `<div class="vblock${short?" short":""}" tabindex="0" draggable="true" data-id="${t.id}" style="${accentStyle(t)}
+        top:${top}px;height:${hgt}px;right:${t._lane*w}%;width:${w}%"
+        title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}">
+        ${envChip(t)}<b>${t.title}</b><time>${hhmm(t.start_min)}</time></div>`;
+    }).join("");
+    return `<div class="vcol">
+      <div class="vhead" title="${p.name}">${p.name}</div>
+      <div class="vtrack" style="height:${H}px">${gl}${blocks}</div>
+    </div>`;
+  }).join("");
+
+  return `<div class="vgrid">
+      <div class="vaxis">
+        <div class="vcorner">${DAYS[currentDay]}</div>
+        <div class="vticks" style="height:${H}px">${axis}</div>
+      </div>
+      <div class="vcols">${cols}</div>
+    </div>`;
+}
+
+function renderDay(){
+  const el = document.getElementById("daily");
+  el.classList.toggle("vert", dayVertical);
+  el.innerHTML =
+    `<div class="orient" role="group" aria-label="כיוון">
+       <button id="orH" aria-pressed="${!dayVertical}">אופקי</button>
+       <button id="orV" aria-pressed="${dayVertical}">אנכי</button>
+     </div>` +
+    (dayVertical ? renderDayVertical() : renderDayHorizontal());
+
+  document.getElementById("orH").onclick = ()=>{ dayVertical=false; renderDay(); };
+  document.getElementById("orV").onclick = ()=>{ dayVertical=true;  renderDay(); };
+}
+
+// ---------- projects: portfolio cards + roster ----------
+let projAllTime = false;
+let projShowClosed = false;
+
+function trendSvg(byDay, color){
+  const vals = [...byDay.values()];
+  if (!vals.length) return "";
+  const max = Math.max(...vals, 1);
+  const w = 100, h = 22, n = vals.length;
+  const bw = w / n;
+  const bars = vals.map((v,i) => {
+    const bh = (v / max) * h;
+    return `<rect x="${(i*bw).toFixed(2)}" y="${(h-bh).toFixed(2)}" width="${Math.max(bw-0.6,0.5).toFixed(2)}" height="${bh.toFixed(2)}" fill="${color}" opacity="${v?0.85:0.12}"/>`;
+  }).join("");
+  return `<svg class="trend" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none" aria-hidden="true">${bars}</svg>`;
+}
+
+// ---------- reverse lookup: per-person agenda (day or week) ----------
+let peopleSpan = "week";   // "day" | "week"
+
+function renderPeople(){
+  const days = peopleSpan==="day" ? [currentDay] : DAYS.map((_,i)=>i);
+
+  const cards = people.map(p=>{
+    // gather this person's tasks across the chosen span, in order
+    const rows = [];
+    let total = 0;
+    for (const di of days){
+      const list = forDay(p.id, di);           // already scope-filtered + sorted
+      for (const t of list){
+        rows.push({ di, t });
+        total += t.duration_min;
+      }
+    }
+    if (!rows.length)
+      return `<article class="pcard">
+        <header><h2>${p.name}</h2><span class="psum">—</span></header>
+        <div class="pnone">אין משימות בטווח</div></article>`;
+
+    let body = "";
+    let lastDay = -1;
+    for (const {di,t} of rows){
+      if (peopleSpan==="week" && di!==lastDay){
+        body += `<div class="pday">${DAYS[di]} · ${fmtDM(dayDate(di))}</div>`;
+        lastDay = di;
+      }
+      const c = taskColor(t);
+      const dot = isGradient(c)
+        ? `background:${cssColor(c)}`
+        : `background:${c}`;
+      body += `<div class="prow2" title="${chainLabel(t)}">
+        <span class="pdot" style="${dot}"></span>
+        <span class="ptime">${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}</span>
+        <span class="ptitle">${t.title}</span>
+        <span class="penv">${envTag(t)}</span>
+      </div>`;
+    }
+
+    return `<article class="pcard">
+      <header><h2>${p.name}</h2>
+        <span class="psum">${(total/60).toFixed(1)} ש׳ · ${rows.length} משימות</span></header>
+      ${body}</article>`;
+  }).join("");
+
+  document.getElementById("peopleview").innerHTML =
+    `<div class="pspan" role="group" aria-label="טווח">
+       <button data-sp="week" aria-pressed="${peopleSpan==='week'}">שבוע</button>
+       <button data-sp="day"  aria-pressed="${peopleSpan==='day'}">יום</button>
+     </div>
+     <div class="pgrid">${cards}</div>`;
+
+  document.querySelectorAll("#peopleview .pspan button").forEach(b=>{
+    b.onclick = ()=>{ peopleSpan = b.dataset.sp; render(); };
+  });
+}
+
+function renderProjects(){
+  const dates = scopeDates(projAllTime);
+  const pool = scopedProjects();
+  const visible = pool.filter(p => projShowClosed || isActive(p));
+  const stats = visible.map(pr => ({ pr, s: projectStats(pr.id, dates) }));
+  const grand = stats.reduce((a,x) => a + x.s.min, 0) || 1;
+  const closedCount = pool.filter(p => !isActive(p)).length;
+
+  const cards = stats.map(({pr,s}) => {
+    const share = (s.min / grand * 100).toFixed(0);
+    const closed = !isActive(pr);
+
+    const MAX_ROSTER = 6;
+    const shown = s.roster.slice(0, MAX_ROSTER);
+    const rest  = s.roster.slice(MAX_ROSTER);
+    const restMin = rest.reduce((a,r)=>a+r.min,0);
+
+    const roster = s.roster.length ? shown.map(r => {
+      const person = people.find(p => p.id === r.pid);
+      return `<div class="who">
+          <span class="nm" title="${person.name}">${shortName(person.name)}</span>
+          <span class="bar"><i style="width:${(r.share*100).toFixed(1)}%;background:${cssColor(pr.color)}"></i></span>
+          <span class="hr">${(r.min/60).toFixed(1)} ש׳</span>
+        </div>`;
+    }).join("") + (rest.length
+      ? `<div class="who more-who">
+           <span class="nm">+${rest.length} נוספים</span>
+           <span class="bar"><i style="width:${(restMin/s.min*100).toFixed(1)}%;background:${cssColor(pr.color)};opacity:.4"></i></span>
+           <span class="hr">${(restMin/60).toFixed(1)} ש׳</span>
+         </div>`
+      : "")
+      : `<div class="none">אין שיבוץ בטווח</div>`;
+
+    const top = s.tasks.slice(0,5).map(t =>
+      `<li><span title="${t.title}">${t.title}</span><b>${(t.min/60).toFixed(1)} ש׳</b></li>`).join("");
+
+    const cardStyle = isGradient(pr.color)
+      ? `--c:${flatColor(pr.color)};border-top:3px solid transparent;border-image:${cssColor(pr.color)} 1;`
+      : `--c:${flatColor(pr.color)};`;
+
+    const { domain, customer } = chainOf(pr.id);
+    const crumb = `${customer?customer.name:""} › ${domain?domain.name:""}`;
+
+    return `<article class="card${closed?" closed":""}" style="${cardStyle}">
+      <header>
+        <div class="htext">
+          <span class="crumb">${crumb}</span>
+          <h2>${pr.name}</h2>
+        </div>
+        ${closed ? `<span class="badge">סגור</span>` : ""}
+        <span class="share">${share}% מהעומס</span>
+      </header>
+      <div class="figs">
+        <div><b>${(s.min/60).toFixed(1)}</b><span>שעות</span></div>
+        <div><b>${s.count}</b><span>משימות</span></div>
+        <div><b>${s.roster.length}</b><span>אנשים</span></div>
+      </div>
+      ${trendSvg(s.byDay, flatColor(pr.color))}
+      <div class="roster">${roster}</div>
+      <ul class="top">${top}</ul>
+      <button class="act" data-proj="${pr.id}">${closed ? "פתח מחדש" : "סגור פרויקט"}</button>
+    </article>`;
+  }).join("");
+
+  document.getElementById("projects").innerHTML =
+    `<div class="ptoolbar">
+       <div class="scope" role="group" aria-label="טווח">
+         <button id="scWeek" aria-pressed="${!projAllTime}">השבוע</button>
+         <button id="scAll"  aria-pressed="${projAllTime}">כל הזמן</button>
+       </div>
+       ${closedCount ? `<label class="showclosed">
+         <input type="checkbox" id="chkClosed" ${projShowClosed?"checked":""}>
+         הצג פרויקטים סגורים (${closedCount})
+       </label>` : ""}
+     </div>
+     <div class="cards">${cards}</div>`;
+
+  document.getElementById("scWeek").onclick = ()=>{ projAllTime=false; render(); };
+  document.getElementById("scAll").onclick  = ()=>{ projAllTime=true;  render(); };
+  const chk = document.getElementById("chkClosed");
+  if (chk) chk.onchange = ()=>{ projShowClosed = chk.checked; render(); };
+
+  document.querySelectorAll("#projects .act").forEach(b=>{
+    b.onclick = ()=>{
+      const pr = projById[+b.dataset.proj];
+      pr.status = isActive(pr) ? "closed" : "active";
+      pr.closed_at = isActive(pr) ? null : iso(new Date());
+      render();
+    };
+  });
+}
+const bw = document.getElementById("btnWeek"),
+      bd = document.getElementById("btnDay"),
+      bpp = document.getElementById("btnPeople"),
+      bp = document.getElementById("btnProj");
+let mode = "week";   // "week" | "day" | "projects"  (the board sub-views)
+
+// ---------- customers dashboard ----------
+function renderCustomers(){
+  const dates = scopeDates(true);
+  const cards = customers.map(c=>{
+    const s = customerStats(c.id, dates);
+    const swatch = cssColor(c.color);
+    return `<article class="hub" data-cust="${c.id}" tabindex="0" role="button">
+      <div class="hubtop" style="background:${swatch}"></div>
+      <h2>${c.name}</h2>
+      <div class="hubfigs">
+        <div><b>${s.domains}</b><span>סביבות</span></div>
+        <div><b>${s.projects}</b><span>פרויקטים</span></div>
+        <div><b>${(s.min/60).toFixed(0)}</b><span>שעות</span></div>
+        <div><b>${s.people}</b><span>אנשים</span></div>
+      </div>
+    </article>`;
+  }).join("");
+  document.getElementById("hub").innerHTML =
+    `<div class="hubhead">
+       <h1 class="hubtitle">לקוחות</h1>
+       <button class="viewall" id="allPeople">כל הצוות · לוח מלא ←</button>
+     </div>
+     <div class="hubgrid">${cards}</div>`;
+  document.getElementById("allPeople").onclick = ()=>{
+    nav.level="board"; nav.customerId=null; nav.domainId=null; mode="week"; render();
+  };
+  document.querySelectorAll("#hub .hub").forEach(el=>{
+    const go = ()=>{ nav.level="environments"; nav.customerId=+el.dataset.cust; render(); };
+    el.onclick = go;
+    el.onkeydown = e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();go();} };
+  });
+}
+
+// ---------- environments of a customer ----------
+function renderEnvironments(){
+  const dates = scopeDates(true);
+  const c = custById[nav.customerId];
+  const list = domains.filter(d=>d.customer_id===nav.customerId);
+  const cards = list.map(d=>{
+    const s = domainStats(d.id, dates);
+    return `<article class="hub" data-dom="${d.id}" tabindex="0" role="button">
+      <div class="hubtop" style="background:${cssColor(d.color)}"></div>
+      <h2>${d.name}</h2>
+      <div class="hubfigs">
+        <div><b>${s.projects}</b><span>פרויקטים</span></div>
+        <div><b>${(s.min/60).toFixed(0)}</b><span>שעות</span></div>
+        <div><b>${s.people}</b><span>אנשים</span></div>
+      </div>
+    </article>`;
+  }).join("");
+  document.getElementById("hub").innerHTML =
+    `<div class="hubhead">
+       <h1 class="hubtitle">${c.name} · סביבות</h1>
+       <button class="viewall" id="allCust">כל הסביבות · לוח מלא ←</button>
+     </div>
+     <div class="hubgrid">${cards}</div>`;
+  document.getElementById("allCust").onclick = ()=>{
+    nav.level="board"; nav.domainId=null; mode="week"; render();
+  };
+  document.querySelectorAll("#hub .hub").forEach(el=>{
+    const go = ()=>{ nav.level="board"; nav.domainId=+el.dataset.dom; mode="projects"; render(); };
+    el.onclick = go;
+    el.onkeydown = e=>{ if(e.key==="Enter"||e.key===" "){e.preventDefault();go();} };
+  });
+}
+
+
+// ---- drill-down navigation ----
+// nav.level: "customers" (dashboard) | "environments" (domains of a customer) | "board"
+const nav = { level:"customers", customerId:null, domainId:null };
+
+// projects visible under the current scope
+function scopedProjects(){
+  if (nav.level === "board" && nav.domainId != null)
+    return projects.filter(p => p.domain_id === nav.domainId);
+  if (nav.customerId != null){
+    const dids = domains.filter(d => d.customer_id === nav.customerId).map(d=>d.id);
+    return projects.filter(p => dids.includes(p.domain_id));
+  }
+  return projects;
+}
+const scopedProjIds = () => new Set(scopedProjects().map(p=>p.id));
+
+// a task passes the current scope filter?
+function inScope(t){
+  if (nav.level !== "board") return true;
+  const pr = projById[t.project_id];
+  if (nav.domainId != null) return pr?.domain_id === nav.domainId;
+  if (nav.customerId != null){
+    const d = pr && domainById[pr.domain_id];
+    return d && d.customer_id === nav.customerId;
+  }
+  return true;   // top-level board: everyone, all customers
+}
+
+// ---- rollups for the dashboards (lifetime window) ----
+function statsForProjects(projIds, dates){
+  const set = new Set(projIds);
+  let min=0, count=0; const ppl=new Set();
+  for (const d of dates)
+    for (const p of people)
+      for (const t of tasksFor(p.id, d)){
+        if (!set.has(t.project_id)) continue;
+        min += t.duration_min; count++; ppl.add(p.id);
+      }
+  return { min, count, people: ppl.size };
+}
+function domainStats(domainId, dates){
+  const ids = projects.filter(p=>p.domain_id===domainId).map(p=>p.id);
+  return { ...statsForProjects(ids, dates), projects: ids.length };
+}
+function customerStats(customerId, dates){
+  const dids = domains.filter(d=>d.customer_id===customerId).map(d=>d.id);
+  const ids  = projects.filter(p=>dids.includes(p.domain_id)).map(p=>p.id);
+  return { ...statsForProjects(ids, dates), domains: dids.length, projects: ids.length };
+}
+
+function label(){
+  if (nav.level !== "board") return "";
+  if (mode === "week") return `${fmtDM(dayDate(0))} – ${fmtDM(dayDate(DAYS.length-1))}`;
+  if (mode === "day")  return `${DAYS[currentDay]}, ${fmtLong(dayDate(currentDay))}`;
+  if (mode === "people")
+    return peopleSpan==="day"
+      ? `${DAYS[currentDay]}, ${fmtLong(dayDate(currentDay))}`
+      : `${fmtDM(dayDate(0))} – ${fmtDM(dayDate(DAYS.length-1))}`;
+  if (projAllTime){ const ds = scopeDates(true); return `${fmtDM(ds[0])} – ${fmtDM(ds[ds.length-1])}`; }
+  return `${fmtDM(dayDate(0))} – ${fmtDM(dayDate(DAYS.length-1))}`;
+}
+
+function breadcrumb(){
+  const parts = [`<button class="bc" data-go="customers">לקוחות</button>`];
+  if (nav.customerId != null){
+    const c = custById[nav.customerId];
+    parts.push(`<span class="sep">›</span>`);
+    if (nav.level === "environments")
+      parts.push(`<span class="bc cur">${c.name}</span>`);
+    else
+      parts.push(`<button class="bc" data-go="environments">${c.name}</button>`);
+  }
+  if (nav.level === "board" && nav.domainId != null){
+    const d = domainById[nav.domainId];
+    parts.push(`<span class="sep">›</span><span class="bc cur">${d.name}</span>`);
+  }
+  return parts.join("");
+}
+
+function render(){
+  const onBoard = nav.level === "board";
+
+  // toggle top-level panels
+  document.getElementById("hub").classList.toggle("on", !onBoard);
+  document.getElementById("board").classList.toggle("hidden", !onBoard);
+
+  // board controls only matter on the board
+  document.querySelector(".modes").style.display   = onBoard ? "flex" : "none";
+  document.querySelector(".nav").style.display     = onBoard ? "flex" : "none";
+
+  // breadcrumb always
+  document.getElementById("crumbs").innerHTML = breadcrumb();
+  document.querySelectorAll("#crumbs .bc[data-go]").forEach(b=>{
+    b.onclick = ()=>{
+      const to = b.dataset.go;
+      if (to === "customers"){ nav.level="customers"; nav.customerId=null; nav.domainId=null; }
+      else if (to === "environments"){ nav.level="environments"; nav.domainId=null; }
+      render();
+    };
+  });
+
+  if (!onBoard){
+    if (nav.level === "customers") renderCustomers();
+    else renderEnvironments();
+    document.getElementById("range").textContent = "";
+    return;
+  }
+
+  bw.setAttribute("aria-pressed", mode==="week");
+  bd.setAttribute("aria-pressed", mode==="day");
+  bp.setAttribute("aria-pressed", mode==="projects");
+  bpp.setAttribute("aria-pressed", mode==="people");
+
+  if (mode==="week") renderWeek();
+  else if (mode==="day") renderDay();
+  else if (mode==="people") renderPeople();
+  else renderProjects();
+
+  document.getElementById("weekly").style.display = mode==="week" ? "table":"none";
+  document.getElementById("daily").classList.toggle("on", mode==="day");
+  document.getElementById("projects").classList.toggle("on", mode==="projects");
+  document.getElementById("peopleview").classList.toggle("on", mode==="people");
+
+  const frozen = mode==="projects" && projAllTime;
+  for (const id of ["prev","next","today"]) document.getElementById(id).disabled = frozen;
+
+  document.getElementById("range").textContent = label();
+}
+
+// step: +1 forward in time, -1 back
+function step(dir){
+  if (nav.level !== "board") return;
+  // the all-time project scope is a fixed window; nothing to navigate
+  if (mode === "projects" && projAllTime) return;
+
+  if (mode === "day" || (mode === "people" && peopleSpan === "day")){
+    currentDay += dir;
+    if (currentDay >= DAYS.length){ anchor = addD(anchor,7); currentDay = 0; }
+    else if (currentDay < 0){ anchor = addD(anchor,-7); currentDay = DAYS.length-1; }
+  } else {
+    // week and week-scoped projects both move by the week
+    anchor = addD(anchor, 7*dir);
+  }
+  render();
+}
+
+// RTL: the ‹ glyph sits on the right and means "back"; › on the left means "forward"
+document.getElementById("prev").onclick = ()=>step(-1);
+document.getElementById("next").onclick = ()=>step(+1);
+document.getElementById("today").onclick = ()=>{
+  const t = resolveWorkday(new Date());
+  anchor = t.anchor;
+  currentDay = t.dayIndex;
+  render();
+};
+
+bw.onclick = ()=>{ mode="week";     render(); };
+bd.onclick = ()=>{ mode="day";      render(); };
+bp.onclick = ()=>{ mode="projects"; render(); };
+bpp.onclick = ()=>{ mode="people"; render(); };
+
+document.addEventListener("keydown", e=>{
+  if (e.target.matches("input,textarea")) return;
+  if (mode==="projects" && projAllTime) return;
+  if (e.key === "ArrowLeft")  step(+1);
+  if (e.key === "ArrowRight") step(-1);
+});
+
+render();
+</script>
+</body>
+</html>

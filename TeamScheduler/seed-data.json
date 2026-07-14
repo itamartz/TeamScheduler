@@ -1,0 +1,47 @@
+{
+  "people": [
+    { "id": 1,  "name": "נועה לוי" },
+    { "id": 2,  "name": "אבי כהן" },
+    { "id": 3,  "name": "מיכל ברק" },
+    { "id": 4,  "name": "רון שגב" },
+    { "id": 5,  "name": "תמר אזולאי" },
+    { "id": 6,  "name": "יוסי מזרחי" },
+    { "id": 7,  "name": "שירה פרידמן" },
+    { "id": 8,  "name": "דני אלמוג" },
+    { "id": 9,  "name": "ליאת בן־דוד" },
+    { "id": 10, "name": "עומר קפלן" },
+    { "id": 11, "name": "הדר שמש" },
+    { "id": 12, "name": "גיא רוזן" },
+    { "id": 13, "name": "מאיה טל" },
+    { "id": 14, "name": "אורי גלבוע" },
+    { "id": 15, "name": "רותם נחום" },
+    { "id": 16, "name": "אלון ביטון" },
+    { "id": 17, "name": "יעל דרור" },
+    { "id": 18, "name": "ניר שפירא" },
+    { "id": 19, "name": "אפרת חדד" },
+    { "id": 20, "name": "עידו לנדאו" }
+  ],
+  "customers": [
+    { "id": 1, "name": "בנק הפועלים",  "color": "#2f5d8f" },
+    { "id": 2, "name": "כללית בריאות", "color": { "type": "linear", "angle": 135, "stops": ["#0b8793", "#360033"] } },
+    { "id": 3, "name": "רשות המסים",   "color": "#7a5170" }
+  ],
+  "environments": [
+    { "id": 1, "customer_id": 1, "name": "Production", "color": { "type": "linear", "angle": 135, "stops": ["#ff0000", "#ff9a00", "#d0de21", "#4fdc4a", "#3fdad8", "#2fc9e2", "#1c7fee", "#5f15f2", "#ba0cf8", "#fb07d9"] } },
+    { "id": 2, "customer_id": 1, "name": "Test",       "color": "#f4c20d" },
+    { "id": 3, "customer_id": 2, "name": "Cloud",      "color": { "type": "linear", "angle": 120, "stops": ["#11998e", "#38ef7d"] } },
+    { "id": 4, "customer_id": 2, "name": "On-Prem",    "color": "#42705a" },
+    { "id": 5, "customer_id": 3, "name": "Production", "color": "#9c5f3f" }
+  ],
+  "projects": [
+    { "id": 1, "domain_id": 1, "name": "מיגרציה לענן",      "status": "active", "color": "#3f6d8f", "created_at": "2026-07-01", "closed_at": null },
+    { "id": 2, "domain_id": 1, "name": "הקשחת אבטחה",       "status": "active", "color": { "type": "linear", "angle": 135, "stops": ["#c31432", "#240b36"] }, "created_at": "2026-07-01", "closed_at": null },
+    { "id": 3, "domain_id": 2, "name": "ניטור ותשתית",      "status": "active", "color": "#42705a", "created_at": "2026-07-01", "closed_at": null },
+    { "id": 4, "domain_id": 3, "name": "תמיכה שוטפת",       "status": "active", "color": { "type": "linear", "angle": 90, "stops": ["#8e2de2", "#4a00e0"] }, "created_at": "2026-07-01", "closed_at": null },
+    { "id": 5, "domain_id": 3, "name": "אינטגרציית API",    "status": "active", "color": "#0b8793", "created_at": "2026-07-01", "closed_at": null },
+    { "id": 6, "domain_id": 4, "name": "שדרוג מסדי נתונים", "status": "active", "color": "#2c7744", "created_at": "2026-07-01", "closed_at": null },
+    { "id": 7, "domain_id": 5, "name": "דוחות שנתיים",      "status": "active", "color": { "type": "linear", "angle": 135, "stops": ["#f83600", "#f9d423"] }, "created_at": "2026-07-01", "closed_at": null },
+    { "id": 8, "domain_id": 5, "name": "מודרניזציה",        "status": "closed", "color": "#9c5f3f", "created_at": "2026-07-01", "closed_at": "2026-07-10" }
+  ],
+  "next_id": { "person": 21, "customer": 4, "environment": 6, "project": 9, "task": 1 }
+}
