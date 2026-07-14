@@ -2488,8 +2488,8 @@ function buildPrintPage(){
      <div class="ppctrls">
        <label class="ppctrl">לקוח: <select id="prCust">${custOpts}</select></label>
        <label class="ppctrl">פרויקט: <select id="prProj">${projOpts}</select></label>
-       <label class="ppctrl">מתאריך: <input type="date" id="prFrom" value="${from}"></label>
-       <label class="ppctrl">עד: <input type="date" id="prTo" value="${to}"></label>
+       <label class="ppctrl">מתאריך: <input type="date" id="prFrom" value="${from}" max="${to}"></label>
+       <label class="ppctrl">עד: <input type="date" id="prTo" value="${to}" min="${from}"></label>
        <button class="ppback" id="prThisWeek">השבוע</button>
      </div>
      <div class="ppctrls">
@@ -2505,8 +2505,19 @@ function buildPrintPage(){
   $("ppBack").onclick = closePrintPage;
   $("prCust").onchange   = e=>{ printCustomer = e.target.value; printProject = "all"; buildPrintPage(); };
   $("prProj").onchange   = e=>{ printProject = e.target.value; buildPrintPage(); };
-  $("prFrom").onchange   = e=>{ printFrom = e.target.value || null; buildPrintPage(); };
-  $("prTo").onchange     = e=>{ printTo   = e.target.value || null; buildPrintPage(); };
+  // keep the range valid: the End date can never precede the From date
+  $("prFrom").onchange = e=>{
+    printFrom = e.target.value || null;
+    const f = printFrom || iso(dayDate(0));
+    if ((printTo || iso(dayDate(DAYS.length-1))) < f) printTo = printFrom;   // pull End up to the new Start
+    buildPrintPage();
+  };
+  $("prTo").onchange = e=>{
+    printTo = e.target.value || null;
+    const f = printFrom || iso(dayDate(0));
+    if ((printTo || iso(dayDate(DAYS.length-1))) < f) printTo = printFrom;   // ignore an End before Start
+    buildPrintPage();
+  };
   $("prThisWeek").onclick = ()=>{ printFrom = null; printTo = null; buildPrintPage(); };
   $("prPerson").onchange = e=>{ printPerson = e.target.value; buildPrintPage(); };
   $("prPerPage").onchange = e=>{ printPerPage = e.target.checked; };
