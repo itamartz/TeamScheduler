@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A team task scheduler: a single-file HTML/JS front end (`scheduler_v3.html`) backed by a Windows **PowerShell 5.1** data/API layer (`Scheduler.psm1`) that serves the UI and answers `/api/...` calls over HTTP on localhost. Storage is local JSON files — no database, no service, no installer. The UI is Hebrew / RTL. `Scheduler_PowerShell_Spec.docx` is the original build spec.
 
+**Fully air-gapped / offline.** There are no external dependencies of any kind — no CDNs, web fonts, analytics, or outbound calls. The front end's only `fetch` targets relative `/api/...` paths on the local server; the backend binds `localhost` only. Keep it that way: inline all CSS/JS, use system fonts, never add a `<script src>`/`<link>`/CDN. Remote is `https://github.com/itamartz/TeamScheduler` (`main`).
+
 ## The single hardest constraint: no admin rights
 
 Everything must run as an ordinary user with no elevation. This dictates the whole design and must be preserved:
@@ -41,6 +43,8 @@ There is no test framework. Verification is done with ad-hoc PowerShell scripts 
 - **Backend:** call `Set-SchedulerDataDir -Path <throwaway dir>` before `Initialize-Store`, then exercise the CRUD functions directly and assert. This keeps tests off the user's real `%LOCALAPPDATA%\TeamScheduler\` data. Run with `powershell -NoProfile -ExecutionPolicy Bypass -File <test>.ps1`.
 - **HTTP/UI:** start a throwaway server on a spare port pointed at a **copy** of the real data (`Set-SchedulerDataDir` to a temp dir, `Copy-Item` the JSON in), drive it, then stop it. Never verify against the live port 8770 / real data.
 - To add sample data, generate tasks via `New-Task` against the real data dir; the server does not need to be running (it reads the files on next start).
+- **Front-end logic (offline):** pure functions in `scheduler_v3.html` can be unit-tested without the server or a browser — slice the relevant block out of the `<script>` and `new Function(...)` it in Node with mocked globals (`iso`, `dayDate`, `chainOf`, `taskCache`, …), then assert on the returned HTML/data. The print report functions were verified this way. `node --check` on the extracted script also catches syntax errors before a reload.
+- **Live UI:** the browser-automation tools can drive the running app (read `#…` element state, dispatch `change`/`click`, inspect `document.styleSheets`). Never call `window.print()` while automating — it opens a blocking dialog; stub it (`window.print = ()=>{}`) to verify the print path instead.
 
 ## PowerShell 5.1 gotchas already handled — preserve them
 
@@ -82,7 +86,14 @@ Front-end things worth knowing before editing:
 - The top-of-board **color legend** is a matrix (customers × environment-names, cell = that env's color), shown only on the board with no customer selected.
 - Global CSS `table{width:100%;min-width:900px}` and `th,td{border…}` leak into any table you add — override `width/min-width/border` (as the legend table does).
 
-Note there are **two** copies of `scheduler_v3.html`: the one in `TeamScheduler/` is the live app wired to the API; the copy in the repo root is the original static/mock design and is not served.
+**Print reporting** (the `🖨 הדפסה` button → `#printPage` gallery + `#printout`): a self-contained subsystem near the bottom of the `<script>`. The button opens a **full-page gallery** (not a modal) with one **card per layout**, each showing a live scaled-down preview. Five layouts live in the `REPORTS` map — three team reports (`table` flat rows, `grid` person×day text matrix with one column per date, `project` grouped) and two per-person (`agenda`, `ptable`). Each is a **pure function returning an HTML string** built from `printRows()`. Mechanics that are easy to break:
+- Reports render into `#printout` (which carries class `paper`). `@media print` hides `body > *` and shows only `#printout`, at `@page { size: A4 landscape }`. The report typography is scoped to `.paper` and defined **outside** the `@media print` block **on purpose**, so the exact same markup styles both the on-screen preview cards and the printed page. Don't move it back inside `@media print`.
+- Print is **B&W by design**: colour coding is replaced by text columns (project / environment / customer). Don't reintroduce colour.
+- Scope/range are **print-only state** (`printCustomer`, `printProject`, `printPerson`, `printPerPage`, `printFrom`, `printTo`) — deliberately independent of the board's `nav`; all default to "all"/current week. `inPrintScope()` (project filter overrides customer) + `printRangeDates()` + `printRows()` drive filtering over an **arbitrary date range**, not just the anchored week. `printRows()` labels each row's weekday from its real date via `DOW_HE` (Sun–Sat), so ranges may include Fri/Sat.
+- Quick-range buttons `שבוע קודם / השבוע / שבוע הבא` set `printFrom/printTo` to week ±7. The **End date is constrained ≥ From** (`prTo` gets `min`, plus a clamp in the change handlers); **From is intentionally unconstrained** (future dates allowed) — do not put a `max` on From.
+- `render()` sets `#printPage` to `display:none`, so any board navigation exits the gallery; `buildPrintPage()` rebuilds the whole page (and its previews) on every filter change.
+
+Note there are **two** copies of `scheduler_v3.html`: the one in `TeamScheduler/` is the live app wired to the API; the copy in the repo root is the original static/mock design and is not served. `TeamScheduler/print-layouts-preview.html` is a separate, self-contained mockup (hard-coded sample data, no API) kept only as a design reference for the print layouts — also not served.
 
 ## Files
 
@@ -90,4 +101,5 @@ Note there are **two** copies of `scheduler_v3.html`: the one in `TeamScheduler/
 - `TeamScheduler/Run-Scheduler.ps1` — entry point.
 - `TeamScheduler/scheduler_v3.html` — the served UI.
 - `TeamScheduler/seed-data.json` — demo data seeded by `Import-SeedData` only when the store is empty.
+- `TeamScheduler/print-layouts-preview.html` — standalone, self-contained mockup of the print layouts (design reference; not served, no API).
 - `TeamScheduler/README.md` — run instructions and API table.
