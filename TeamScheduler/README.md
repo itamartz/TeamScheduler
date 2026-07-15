@@ -23,7 +23,7 @@ Options: `-Port 8771` (if 8770 is taken), `-NoBrowser`.
   the port is taken; pick another high port. Never fall back to `netsh`.
 - **Storage:** JSON files under `%LOCALAPPDATA%\TeamScheduler\` (always
   user-writable): `people.json`, `customers.json`, `environments.json`,
-  `projects.json`, `tasks.json`, `meta.json` (id counters).
+  `projects.json`, `tasks.json`, `holidays.json`, `meta.json` (id counters).
 - **First run** seeds the demo customers/environments/projects/people from
   `seed-data.json` (only when `customers.json` is empty).
 
@@ -33,13 +33,14 @@ Options: `-Port 8771` (if 8770 is taken), `-NoBrowser`.
 - **+ משימה** button (or double-click an empty weekly cell) adds a task.
 - **Click any task** (weekly chip / daily block) to edit or delete it.
 - Project cards have **סגור פרויקט / פתח מחדש** (soft close; tasks stay and render muted).
+- **🎌 חגים** button manages holidays (name + date range). A holiday tints that day on the board and shows a notice when you schedule on it — it warns but does **not** block.
 
 ## API (all JSON, snake_case to match the UI)
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/bootstrap` | all five collections in one payload |
-| GET/POST | `/api/people`, `/api/customers`, `/api/environments`, `/api/projects`, `/api/tasks` | create with a JSON body |
+| GET | `/api/bootstrap` | all six collections in one payload |
+| GET/POST | `/api/people`, `/api/customers`, `/api/environments`, `/api/projects`, `/api/tasks`, `/api/holidays` | create with a JSON body |
 | PUT/DELETE | `/api/<entity>/{id}` | PUT takes any subset of fields |
 | POST | `/api/projects/{id}/close` / `/api/projects/{id}/open` | soft close / reopen |
 | GET | `/api/tasks?from=YYYY-MM-DD&to=YYYY-MM-DD&person_id=N` | filters, all optional |

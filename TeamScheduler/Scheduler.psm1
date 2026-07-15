@@ -73,7 +73,8 @@ function Initialize-Store {
         "environments.json" = "[]"
         "projects.json"     = "[]"
         "tasks.json"        = "[]"
-        "meta.json"         = '{"nextId":{"person":1,"customer":1,"environment":1,"project":1,"task":1}}'
+        "holidays.json"     = "[]"
+        "meta.json"         = '{"nextId":{"person":1,"customer":1,"environment":1,"project":1,"task":1,"holiday":1}}'
     }
     foreach ($name in $files.Keys) {
         $path = Join-Path $script:DataDir $name
@@ -132,7 +133,13 @@ function Get-NextId {
     param([Parameter(Mandatory)][string]$Kind)
     $metaPath = Join-Path $script:DataDir "meta.json"
     $meta = [System.IO.File]::ReadAllText($metaPath, [System.Text.Encoding]::UTF8) | ConvertFrom-Json
+    # An older meta.json may predate a newer entity kind (e.g. "holiday"): add the
+    # counter on first use so existing stores upgrade in place.
+    if (-not ($meta.nextId.PSObject.Properties.Name -contains $Kind)) {
+        Add-Member -InputObject $meta.nextId -NotePropertyName $Kind -NotePropertyValue 1
+    }
     $id = [int]$meta.nextId.$Kind
+    if ($id -lt 1) { $id = 1 }
     $meta.nextId.$Kind = $id + 1
     Save-RawText -Path $metaPath -Text (ConvertTo-Json -InputObject $meta -Depth 10)
     return $id
@@ -839,6 +846,74 @@ function Remove-Task {
 }
 
 # ---------------------------------------------------------------------------
+# holidays  (global, date-range; a task on a holiday date is warned, never blocked)
+# ---------------------------------------------------------------------------
+
+function New-Holiday {
+    <#
+    .SYNOPSIS  Creates a holiday spanning an inclusive local date range.
+    .PARAMETER Name  Holiday label (e.g. "יום העצמאות").
+    .PARAMETER From  Inclusive "yyyy-MM-dd" LOCAL start date.
+    .PARAMETER To    Inclusive "yyyy-MM-dd" LOCAL end date (>= From).
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [Parameter(Mandatory)][string]$From,
+        [Parameter(Mandatory)][string]$To
+    )
+    if ([string]::IsNullOrWhiteSpace($Name)) { throw "Holiday name is required." }
+    Test-DateString -Date $From
+    Test-DateString -Date $To
+    if ($To -lt $From) { throw "Holiday end date must be on or after the start date." }
+    $all = @(Get-Entities "holidays")
+    $item = [PSCustomObject]@{
+        id   = Get-NextId "holiday"
+        name = $Name
+        from = $From
+        to   = $To
+    }
+    $all += $item
+    Save-Entities "holidays" $all
+    return $item
+}
+
+function Get-Holidays {
+    <# .SYNOPSIS Returns all holidays. #>
+    return @(Get-Entities "holidays")
+}
+
+function Set-Holiday {
+    <# .SYNOPSIS Updates any subset of a holiday's fields. #>
+    param(
+        [Parameter(Mandatory)][int]$Id,
+        [string]$Name, [string]$From, [string]$To
+    )
+    if ($PSBoundParameters.ContainsKey('From')) { Test-DateString -Date $From }
+    if ($PSBoundParameters.ContainsKey('To'))   { Test-DateString -Date $To }
+    $all = @(Get-Entities "holidays")
+    $found = $false
+    foreach ($h in $all) {
+        if ($h.id -eq $Id) {
+            if ($PSBoundParameters.ContainsKey('Name')) { $h.name = $Name }
+            if ($PSBoundParameters.ContainsKey('From')) { $h.from = $From }
+            if ($PSBoundParameters.ContainsKey('To'))   { $h.to   = $To }
+            if ($h.to -lt $h.from) { throw "Holiday end date must be on or after the start date." }
+            $found = $true
+        }
+    }
+    if (-not $found) { throw "Holiday $Id not found" }
+    Save-Entities "holidays" $all
+    return ($all | Where-Object { $_.id -eq $Id })
+}
+
+function Remove-Holiday {
+    <# .SYNOPSIS Deletes a holiday (always allowed). #>
+    param([Parameter(Mandatory)][int]$Id)
+    $all = @(Get-Entities "holidays" | Where-Object { $_.id -ne $Id })
+    Save-Entities "holidays" $all
+}
+
+# ---------------------------------------------------------------------------
 # body -> named-parameter bridges (PUT handlers pass only present properties)
 # ---------------------------------------------------------------------------
 
@@ -892,6 +967,13 @@ function Set-TaskFromBody {
         date = 'Date'; start_min = 'StartMin'; duration_min = 'DurationMin'
     }
     return Set-Task -Id $Id @splat
+}
+
+function Set-HolidayFromBody {
+    <# .SYNOPSIS PUT /api/holidays/{id} bridge. #>
+    param([Parameter(Mandatory)][int]$Id, $Body)
+    $splat = Select-BodyParams -Body $Body -Map @{ name = 'Name'; from = 'From'; to = 'To' }
+    return Set-Holiday -Id $Id @splat
 }
 
 # ---------------------------------------------------------------------------
@@ -985,6 +1067,7 @@ function Invoke-ApiRoute {
             environments = @(Get-Entities "environments")
             projects     = @(Get-Entities "projects")
             tasks        = @(Get-Entities "tasks")
+            holidays     = @(Get-Entities "holidays")
         }
     }
 
@@ -1069,6 +1152,14 @@ function Invoke-ApiRoute {
                     Remove-Person -Id $id -ReassignTo $rt
                     return @{ ok = $true }
                 }
+            }
+        }
+        "holidays" {
+            switch ($Method) {
+                "GET"    { return ,@(Get-Holidays) }
+                "POST"   { return New-Holiday -Name $Body.name -From $Body.from -To $Body.to }
+                "PUT"    { return Set-HolidayFromBody -Id $id -Body $Body }
+                "DELETE" { Remove-Holiday -Id $id; return @{ ok = $true } }
             }
         }
     }

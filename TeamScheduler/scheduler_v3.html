@@ -71,12 +71,12 @@
   .nav button:hover{background:#ece8df}
   #range{font-size:13px;color:#7c7466;font-variant-numeric:tabular-nums}
 
-  #addTask,#addPerson,#printBtn{
+  #addTask,#addPerson,#printBtn,#holBtn{
     background:var(--ink);color:var(--paper);border:0;
     padding:7px 14px;font:inherit;font-size:13px;cursor:pointer;border-radius:3px;
   }
-  #addTask:hover,#addPerson:hover,#printBtn:hover{opacity:.88}
-  #addPerson,#printBtn{background:none;color:var(--ink);border:1px solid var(--rule-strong)}
+  #addTask:hover,#addPerson:hover,#printBtn:hover,#holBtn:hover{opacity:.88}
+  #addPerson,#printBtn,#holBtn{background:none;color:var(--ink);border:1px solid var(--rule-strong)}
 
   .modes{display:flex;gap:0;margin-inline-start:auto;border:1px solid var(--rule-strong)}
   .modes button{
@@ -88,6 +88,35 @@
 
   thead th.today{background:#ece8df}
   thead th.today small{color:var(--ink)}
+
+  /* holidays: a day marked as a company/national holiday (tasks warned, not blocked) */
+  thead th.holiday{background:#f6e9e0}
+  thead th.holiday small{color:#8a5a3c}
+  .holname{display:block;font-size:12px;font-weight:650;color:#a15c34;margin-top:2px;line-height:1.15}
+  td.day.holiday{background:repeating-linear-gradient(135deg,#faf1ea,#faf1ea 9px,#f3e5d9 9px,#f3e5d9 18px)}
+  td.day.holiday.empty:hover{background:#f0e1d3}
+  td.day.holiday.empty:hover::after{color:#b98a63}
+  .holbanner{
+    margin:8px 24px 0;padding:9px 13px;background:#f6e9e0;border:1px solid #e0c3ad;
+    border-radius:3px;color:#8a4b28;font-size:15px;font-weight:600;
+  }
+  .holwarn{
+    margin-top:10px;padding:9px 11px;background:#f6e9e0;border:1px solid #e0c3ad;
+    border-radius:3px;color:#8a4b28;font-size:13px;line-height:1.4;
+  }
+  .hollist{max-height:250px;overflow:auto;margin-bottom:14px;border:1px solid var(--rule);border-radius:2px}
+  .holempty{padding:16px;color:#a29a8b;font-size:13px;text-align:center}
+  .holrow{display:flex;align-items:center;gap:10px;padding:9px 11px;border-bottom:1px solid var(--rule)}
+  .holrow:last-child{border-bottom:0}
+  .holrow.editing{background:#f6e9e0}
+  .holinfo{flex:1;min-width:0;display:flex;flex-direction:column}
+  .holinfo b{font-size:15px}
+  .holinfo span{font-size:12px;color:#7c7466;margin-top:1px}
+  .holedit,.holdel{
+    background:none;border:1px solid var(--rule-strong);border-radius:2px;
+    width:32px;height:32px;min-width:32px;cursor:pointer;font-size:15px;line-height:1;
+  }
+  .holedit:hover,.holdel:hover{background:#f0ece3}
 
   .board{overflow:auto;padding:0 0 60px}
   .board.hidden{display:none}
@@ -545,6 +574,9 @@
   .paper .rp-group .gh .env{font-size:11px;color:#5c5548}
   .paper .rp-group .gh .hrs{margin-inline-start:auto;font-size:12px;font-weight:650;
     font-variant-numeric:tabular-nums}
+  .paper .rp-deps{font-size:12px;color:#3a352c;margin:0 0 6px;line-height:1.5}
+  .paper .rp-deps .lbl{font-weight:650}
+  .paper .rp-deps .rp-depnote{display:block;font-size:11px;color:#5c5548;margin-top:1px}
   .paper .rp-group ul{list-style:none;margin:0;padding:0}
   .paper .rp-group li{display:grid;grid-template-columns:130px 92px 118px 1fr;gap:10px;
     font-size:12.5px;padding:3px 4px;border-bottom:1px dotted #cfc9bc;
@@ -589,6 +621,7 @@
   <button id="addTask" title="הוספת משימה">+ משימה</button>
   <button id="addPerson" title="הוספת עובד">+ עובד</button>
   <button id="printBtn" title="הדפסת התצוגה הנוכחית">🖨 הדפסה</button>
+  <button id="holBtn" title="ניהול חגים וימי חופשה">🎌 חגים</button>
 
   <div class="modes" role="group" aria-label="תצוגה">
     <button id="btnProj" aria-pressed="false">פרויקטים</button>
@@ -629,11 +662,31 @@
       <div><label for="tStart">התחלה</label><input id="tStart" type="time" step="900"></div>
       <div><label for="tDur">משך (דק׳)</label><input id="tDur" type="number" min="15" step="15" value="30"></div>
     </div>
+    <div class="holwarn" id="tHolWarn" style="display:none"></div>
     <div class="merr" id="tErr"></div>
     <div class="mbtns">
       <button class="save" id="tSave">שמירה</button>
       <button class="cancel" id="tCancel">ביטול</button>
       <button class="danger" id="tDelete">מחיקה</button>
+    </div>
+  </div>
+</div>
+
+<div class="modalwrap" id="holModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="hHead">
+    <h2 id="hHead">🎌 חגים וימי חופשה</h2>
+    <div id="holList" class="hollist"></div>
+    <label for="hName">שם החג</label>
+    <input id="hName" type="text" autocomplete="off" placeholder="לדוגמה: פסח">
+    <div class="mrow">
+      <div><label for="hFrom">מתאריך</label><input id="hFrom" type="date"></div>
+      <div><label for="hTo">עד תאריך (כולל)</label><input id="hTo" type="date"></div>
+    </div>
+    <div class="merr" id="hErr"></div>
+    <div class="mbtns">
+      <button class="save" id="hSave">הוספה</button>
+      <button class="cancel" id="hReset" style="display:none">ביטול עריכה</button>
+      <button class="cancel" id="hCancel">סגירה</button>
     </div>
   </div>
 </div>
@@ -732,6 +785,16 @@ const fmtLong = d => d.toLocaleDateString("he-IL",{day:"numeric",month:"long",ye
 // Sunday of the week containing d (Israeli week starts Sunday)
 const weekStart = d => addD(d, -d.getDay());
 
+// format a "yyyy-MM-dd" string as "d/M/yyyy" without going through Date (no UTC shift)
+const fmtIso = s => { const [y,m,d] = s.split("-"); return `${+d}/${+m}/${y}`; };
+// the holiday whose inclusive range covers a "yyyy-MM-dd" date string, or null
+function holidayOn(dateIso){
+  for (const h of holidays){
+    if (dateIso >= h.from && dateIso <= h.to) return h;
+  }
+  return null;
+}
+
 // Fri(5)/Sat(6) are non-working: land on the upcoming Sunday instead.
 // Returns {anchor, dayIndex} for any date.
 function resolveWorkday(d){
@@ -751,6 +814,7 @@ const people = [];
 const customers = [];
 const domains = [];
 const projects = [];
+const holidays = [];   // global, date-range; a task on a holiday date is warned, not blocked
 
 // virtual "person" for tasks with person_id === 0 (a task on a project, not yet
 // assigned to anyone). It appears as a pool row/column only when it has tasks.
@@ -917,6 +981,7 @@ async function loadAll(){
   customers.length = 0; customers.push(...(d.customers || []));
   domains.length = 0;   domains.push(...(d.environments || []));   // the UI calls them "domains"
   projects.length = 0;  projects.push(...(d.projects || []));
+  holidays.length = 0;  holidays.push(...(d.holidays || []));
   rebuildLookups();
   assertUniqueEnvColors();
   taskCache = d.tasks || [];
@@ -1026,11 +1091,14 @@ function renderLegend(){
 const MAX_CHIPS = 3;
 function renderWeek(){
   const todayIso = iso(new Date());
+  const holByDay = DAYS.map((_,i)=>holidayOn(iso(dayDate(i))));   // holiday per column, or null
   const head = `<thead><tr><th class="person">שם</th>${
     DAYS.map((d,i)=>{
       const dt = dayDate(i);
       const isToday = iso(dt) === todayIso;
-      return `<th${isToday?' class="today"':""}>${fmtDM(dt)}<small>${d}</small></th>`;
+      const hol = holByDay[i];
+      const cls = [isToday?"today":"", hol?"holiday":""].filter(Boolean).join(" ");
+      return `<th${cls?` class="${cls}"`:""}${hol?` title="${hol.name}"`:""}>${fmtDM(dt)}<small>${d}</small>${hol?`<em class="holname">🎌 ${hol.name}</em>`:""}</th>`;
     }).join("")}</tr></thead>`;
 
   const body = boardPeopleForDays(DAYS.map((_,i)=>i)).map(p=>{
@@ -1043,14 +1111,15 @@ function renderWeek(){
     return `<tr>
     ${nameCell}
     ${DAYS.map((_,d)=>{
+      const holCls = holByDay[d] ? " holiday" : "";
       const list = forDay(p.id,d);
-      if(!list.length) return `<td class="day empty" data-pid="${p.id}" data-day="${d}"></td>`;
+      if(!list.length) return `<td class="day empty${holCls}" data-pid="${p.id}" data-day="${d}"></td>`;
       const shown = list.slice(0,MAX_CHIPS).map(t=>
         `<div class="chip" style="${accentStyle(t)}" tabindex="0" data-id="${t.id}"
            title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}">
            <time>${hhmm(t.start_min)}</time><span class="ctitle">${t.title}</span>${envChip(t)}</div>`).join("");
       const rest = list.length - MAX_CHIPS;
-      return `<td class="day" data-pid="${p.id}" data-day="${d}">${shown}${rest>0?`<div class="more">+${rest} נוספות</div>`:""}</td>`;
+      return `<td class="day${holCls}" data-pid="${p.id}" data-day="${d}">${shown}${rest>0?`<div class="more">+${rest} נוספות</div>`:""}</td>`;
     }).join("")}
   </tr>`;
   }).join("");
@@ -1158,11 +1227,13 @@ function renderDayVertical(){
 function renderDay(){
   const el = document.getElementById("daily");
   el.classList.toggle("vert", dayVertical);
+  const hol = holidayOn(iso(dayDate(currentDay)));
+  const banner = hol ? `<div class="holbanner">🎌 ${hol.name} · יום חופשה</div>` : "";
   el.innerHTML =
     `<div class="orient" role="group" aria-label="כיוון">
        <button id="orH" aria-pressed="${!dayVertical}">אופקי</button>
        <button id="orV" aria-pressed="${dayVertical}">אנכי</button>
-     </div>` +
+     </div>` + banner +
     (dayVertical ? renderDayVertical() : renderDayHorizontal());
 
   document.getElementById("orH").onclick = ()=>{ dayVertical=false; renderDay(); };
@@ -1809,10 +1880,26 @@ function openTaskModal(task, defaults){
   document.getElementById("tDur").value = task ? task.duration_min : 30;
   document.getElementById("tDelete").style.display = task ? "" : "none";
   document.getElementById("tErr").textContent = "";
+  updateHolWarn();
   dlg.classList.add("on");
   document.getElementById("tTitle").focus();
 }
 function closeTaskModal(){ dlg.classList.remove("on"); editingId = null; }
+
+// show a non-blocking notice when the chosen date falls on a holiday (warn-but-allow)
+function updateHolWarn(){
+  const el  = document.getElementById("tHolWarn");
+  const hol = holidayOn(document.getElementById("tDate").value);
+  if (hol){
+    el.textContent = `🎌 ${hol.name} · יום חופשה. ניתן לשבץ משימה בכל זאת.`;
+    el.style.display = "";
+  } else {
+    el.textContent = "";
+    el.style.display = "none";
+  }
+}
+document.getElementById("tDate").addEventListener("input",  updateHolWarn);
+document.getElementById("tDate").addEventListener("change", updateHolWarn);
 
 async function saveTask(){
   const startVal = document.getElementById("tStart").value || "09:00";
@@ -1855,6 +1942,86 @@ document.getElementById("addTask").onclick = ()=> openTaskModal(null);
 
 // open the print gallery page: pick a layout from cards with live previews, then print
 document.getElementById("printBtn").onclick = openPrintPage;
+
+// ---------- holidays manager (global date-range holidays) ----------
+const holWrap = document.getElementById("holModal");
+let holEditId = null;   // null = add mode, otherwise the id being edited
+
+function renderHolList(){
+  const wrap = document.getElementById("holList");
+  if (!holidays.length){ wrap.innerHTML = `<div class="holempty">אין חגים מוגדרים</div>`; return; }
+  const sorted = holidays.slice().sort((a,b)=> a.from < b.from ? -1 : a.from > b.from ? 1 : 0);
+  wrap.innerHTML = sorted.map(h=>{
+    const range = h.from === h.to ? fmtIso(h.from) : `${fmtIso(h.from)} – ${fmtIso(h.to)}`;
+    return `<div class="holrow${h.id===holEditId?" editing":""}">
+      <div class="holinfo"><b>${h.name}</b><span>${range}</span></div>
+      <button class="holedit" data-edit="${h.id}" title="עריכה">✎</button>
+      <button class="holdel"  data-del="${h.id}"  title="מחיקה">🗑</button>
+    </div>`;
+  }).join("");
+  wrap.querySelectorAll("[data-edit]").forEach(b=> b.onclick = ()=> holLoadForEdit(+b.dataset.edit));
+  wrap.querySelectorAll("[data-del]").forEach(b=> b.onclick = ()=> holDelete(+b.dataset.del));
+}
+function holReset(){
+  holEditId = null;
+  document.getElementById("hName").value = "";
+  document.getElementById("hFrom").value = "";
+  document.getElementById("hTo").value   = "";
+  document.getElementById("hErr").textContent = "";
+  document.getElementById("hSave").textContent = "הוספה";
+  document.getElementById("hReset").style.display = "none";
+  renderHolList();
+}
+function holLoadForEdit(id){
+  const h = holidays.find(x=>x.id===id);
+  if (!h) return;
+  holEditId = id;
+  document.getElementById("hName").value = h.name;
+  document.getElementById("hFrom").value = h.from;
+  document.getElementById("hTo").value   = h.to;
+  document.getElementById("hErr").textContent = "";
+  document.getElementById("hSave").textContent = "עדכון";
+  document.getElementById("hReset").style.display = "";
+  renderHolList();
+  document.getElementById("hName").focus();
+}
+async function holSave(){
+  const name = document.getElementById("hName").value.trim();
+  const from = document.getElementById("hFrom").value;
+  const to   = document.getElementById("hTo").value || from;   // empty End = single day
+  const err  = document.getElementById("hErr");
+  if (!name){ err.textContent = "נדרש שם"; return; }
+  if (!from){ err.textContent = "נדרש תאריך התחלה"; return; }
+  if (to < from){ err.textContent = "תאריך הסיום חייב להיות אחרי תאריך ההתחלה"; return; }
+  try{
+    if (holEditId) await api(`/api/holidays/${holEditId}`, "PUT", { name, from, to });
+    else           await api("/api/holidays", "POST", { name, from, to });
+    await loadAll();   // refresh holidays[] and re-tint the board underneath
+    holReset();
+  }catch(e){ err.textContent = e.message; }
+}
+async function holDelete(id){
+  try{
+    await api(`/api/holidays/${id}`, "DELETE");
+    await loadAll();
+    if (holEditId === id) holReset(); else renderHolList();
+  }catch(e){ document.getElementById("hErr").textContent = e.message; }
+}
+function openHolModal(){ holReset(); holWrap.classList.add("on"); }
+function closeHolModal(){ holWrap.classList.remove("on"); }
+
+document.getElementById("holBtn").onclick   = openHolModal;
+document.getElementById("hSave").onclick    = holSave;
+document.getElementById("hReset").onclick   = holReset;
+document.getElementById("hCancel").onclick  = closeHolModal;
+// keep End >= From, as the print range does
+document.getElementById("hFrom").addEventListener("change", ()=>{
+  const f = document.getElementById("hFrom").value;
+  document.getElementById("hTo").min = f;
+  if (document.getElementById("hTo").value && document.getElementById("hTo").value < f)
+    document.getElementById("hTo").value = f;
+});
+holWrap.addEventListener("click", e=>{ if (e.target === holWrap) closeHolModal(); });
 
 // Board clicks:
 //  - a task chip/block  -> edit that task
@@ -2373,6 +2540,30 @@ function reportGrid(){
     (pids.length ? `<table class="rg"><thead>${head}</thead><tbody>${body}</tbody></table>`
                  : `<div class="rp-empty">אין משימות בטווח הנבחר.</div>`);
 }
+// dependency line for the project report — mirrors the board card logic
+// (⛔ missing-in-environment, ⚠ starts-before-dependency) but rendered B&W as text
+function printDepsLine(projId){
+  const pr = projById[projId];
+  if (!pr) return "";
+  const deps = depsOf(pr).map(id=>projById[id]).filter(Boolean);
+  if (!deps.length) return "";
+  const myEarliest = earliestTaskOf(pr.id);
+  const myEnvName  = (domainOf(pr)||{}).name || "";
+  let anyMissing = false, anyWarn = false;
+  const parts = deps.map(dp=>{
+    const inMyEnv  = projects.some(x => x.domain_id===pr.domain_id && x.name===dp.name);
+    const de       = earliestTaskOf(dp.id);
+    const timeWarn = myEarliest && de && myEarliest < de;
+    if (!inMyEnv){ anyMissing = true; return `⛔ ${dp.name}`; }
+    if (timeWarn){ anyWarn = true;    return `⚠ ${dp.name}`; }
+    return dp.name;
+  });
+  const notes = [];
+  if (anyMissing) notes.push(`⛔ תלות חסרה בסביבה '${myEnvName}'`);
+  if (anyWarn)    notes.push(`⚠ הפרויקט מתחיל לפני התלות`);
+  const note = notes.length ? `<span class="rp-depnote">${notes.join(" · ")}</span>` : "";
+  return `<div class="rp-deps"><span class="lbl">תלוי ב:</span> ${parts.join(" · ")}${note}</div>`;
+}
 // --- manager: grouped by project ---
 function reportProject(){
   const rows = printRows();
@@ -2389,7 +2580,7 @@ function reportProject(){
     const nm = ch.project ? ch.project.name : "—";
     const sub = `${ch.customer?ch.customer.name:"—"} › ${ch.domain?ch.domain.name:"—"}`;
     const items = g.list.map(r=>`<li><span>${r.person}</span><span>${r.dayLabel}</span><span>${rSpan(r)}</span><span class="tl">${r.title}</span></li>`).join("");
-    return `<div class="rp-group"><div class="gh"><b>${nm}</b><span class="env">${sub}</span><span class="hrs">${rHrs(g.tot)} ש׳ · ${g.list.length} משימות</span></div><ul>${items}</ul></div>`;
+    return `<div class="rp-group"><div class="gh"><b>${nm}</b><span class="env">${sub}</span><span class="hrs">${rHrs(g.tot)} ש׳ · ${g.list.length} משימות</span></div>${printDepsLine(g.pid)}<ul>${items}</ul></div>`;
   }).join("");
   return rHead("דוח לפי פרויקט · צוות", [scope, rng, `${groups.length} פרויקטים`]) +
     (groups.length ? html : `<div class="rp-empty">אין משימות בטווח הנבחר.</div>`);
