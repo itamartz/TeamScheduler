@@ -74,7 +74,8 @@ function Initialize-Store {
         "projects.json"     = "[]"
         "tasks.json"        = "[]"
         "holidays.json"     = "[]"
-        "meta.json"         = '{"nextId":{"person":1,"customer":1,"environment":1,"project":1,"task":1,"holiday":1}}'
+        "templates.json"    = "[]"
+        "meta.json"         = '{"nextId":{"person":1,"customer":1,"environment":1,"project":1,"task":1,"holiday":1,"template":1}}'
     }
     foreach ($name in $files.Keys) {
         $path = Join-Path $script:DataDir $name
@@ -914,6 +915,126 @@ function Remove-Holiday {
 }
 
 # ---------------------------------------------------------------------------
+# task templates  (global library; a template = a named list of {title,duration_min}.
+# Applying one to a project creates back-to-back UNASSIGNED tasks from a start time.)
+# ---------------------------------------------------------------------------
+
+function ConvertTo-TemplateTasks {
+    <#
+    .SYNOPSIS
+        Validates/normalizes an array of template tasks to [{title,duration_min}].
+        Accepts hashtables or PSCustomObjects; throws on a missing title or a
+        non-positive duration. Returns an array (0/1/N items all stay arrays).
+    #>
+    param([object[]]$Tasks)
+    $out = @()
+    foreach ($t in @($Tasks)) {
+        if ($null -eq $t) { continue }
+        if ($t -is [System.Collections.IDictionary]) { $title = $t['title']; $dur = $t['duration_min'] }
+        else { $title = $t.title; $dur = $t.duration_min }
+        if ([string]::IsNullOrWhiteSpace([string]$title)) { throw "Each template task needs a title." }
+        $d = 0
+        if (-not [int]::TryParse([string]$dur, [ref]$d) -or $d -le 0) {
+            throw "Each template task needs a positive duration (minutes)."
+        }
+        $out += [PSCustomObject]@{ title = [string]$title; duration_min = $d }
+    }
+    return ,$out
+}
+
+function New-Template {
+    <#
+    .SYNOPSIS  Creates a task template.
+    .PARAMETER Name   Template label (e.g. "New server setup").
+    .PARAMETER Tasks  Array of { title, duration_min } (order is preserved).
+    #>
+    param(
+        [Parameter(Mandatory)][string]$Name,
+        [object[]]$Tasks = @()
+    )
+    if ([string]::IsNullOrWhiteSpace($Name)) { throw "Template name is required." }
+    $norm = ConvertTo-TemplateTasks $Tasks
+    $all = @(Get-Entities "templates")
+    $item = [PSCustomObject]@{
+        id    = Get-NextId "template"
+        name  = $Name
+        tasks = $norm
+    }
+    $all += $item
+    Save-Entities "templates" $all
+    return $item
+}
+
+function Get-Templates {
+    <# .SYNOPSIS Returns all templates. #>
+    return @(Get-Entities "templates")
+}
+
+function Set-Template {
+    <# .SYNOPSIS Updates a template's name and/or its task list. #>
+    param(
+        [Parameter(Mandatory)][int]$Id,
+        [string]$Name,
+        [object[]]$Tasks
+    )
+    $all = @(Get-Entities "templates")
+    $found = $false
+    foreach ($tp in $all) {
+        if ($tp.id -eq $Id) {
+            if ($PSBoundParameters.ContainsKey('Name')) {
+                if ([string]::IsNullOrWhiteSpace($Name)) { throw "Template name is required." }
+                $tp.name = $Name
+            }
+            if ($PSBoundParameters.ContainsKey('Tasks')) { $tp.tasks = ConvertTo-TemplateTasks $Tasks }
+            $found = $true
+        }
+    }
+    if (-not $found) { throw "Template $Id not found" }
+    Save-Entities "templates" $all
+    return ($all | Where-Object { $_.id -eq $Id })
+}
+
+function Remove-Template {
+    <# .SYNOPSIS Deletes a template (always allowed; never touches existing tasks). #>
+    param([Parameter(Mandatory)][int]$Id)
+    $all = @(Get-Entities "templates" | Where-Object { $_.id -ne $Id })
+    Save-Entities "templates" $all
+}
+
+function Add-TemplateToProject {
+    <#
+    .SYNOPSIS
+        Instantiates a template's tasks onto a project: creates one task per
+        template entry, laid out back-to-back from $StartMin on $Date, all
+        assigned to $PersonId (default 0 = UNASSIGNED). Returns the new tasks.
+    #>
+    param(
+        [Parameter(Mandatory)][int]$Id,
+        [Parameter(Mandatory)][int]$ProjectId,
+        [Parameter(Mandatory)][string]$Date,
+        [int]$StartMin = 480,
+        [int]$PersonId = 0
+    )
+    Test-DateString -Date $Date
+    $tpl = @(Get-Entities "templates") | Where-Object { $_.id -eq $Id } | Select-Object -First 1
+    if (-not $tpl) { throw "Template $Id not found" }
+    if (-not (@(Get-Entities "projects") | Where-Object { $_.id -eq $ProjectId })) { throw "Project $ProjectId not found" }
+    if ($PersonId -ne 0 -and -not (@(Get-Entities "people") | Where-Object { $_.id -eq $PersonId })) { throw "Person $PersonId not found" }
+    if ($StartMin -lt 0 -or $StartMin -gt 1439) { throw "start_min must be 0..1439" }
+    $tasks = @($tpl.tasks | ForEach-Object { $_ })
+    $created = @()
+    $cur = $StartMin
+    foreach ($tt in $tasks) {
+        $dur = [int]$tt.duration_min
+        $created += New-Task -PersonId $PersonId -ProjectId $ProjectId -Title ([string]$tt.title) `
+                             -Date $Date -StartMin $cur -DurationMin $dur
+        $cur += $dur
+    }
+    # return the items unwrapped; the route re-wraps with ,@(...) for a flat JSON array
+    return $created
+}
+
+# ---------------------------------------------------------------------------
 # body -> named-parameter bridges (PUT handlers pass only present properties)
 # ---------------------------------------------------------------------------
 
@@ -974,6 +1095,15 @@ function Set-HolidayFromBody {
     param([Parameter(Mandatory)][int]$Id, $Body)
     $splat = Select-BodyParams -Body $Body -Map @{ name = 'Name'; from = 'From'; to = 'To' }
     return Set-Holiday -Id $Id @splat
+}
+
+function Set-TemplateFromBody {
+    <# .SYNOPSIS PUT /api/templates/{id} bridge (name and/or full task list). #>
+    param([Parameter(Mandatory)][int]$Id, $Body)
+    $splat = @{}
+    if ($Body -and ($Body.PSObject.Properties.Name -contains 'name'))  { $splat['Name']  = $Body.name }
+    if ($Body -and ($Body.PSObject.Properties.Name -contains 'tasks')) { $splat['Tasks'] = @($Body.tasks) }
+    return Set-Template -Id $Id @splat
 }
 
 # ---------------------------------------------------------------------------
@@ -1068,6 +1198,7 @@ function Invoke-ApiRoute {
             projects     = @(Get-Entities "projects")
             tasks        = @(Get-Entities "tasks")
             holidays     = @(Get-Entities "holidays")
+            templates    = @(Get-Entities "templates")
         }
     }
 
@@ -1162,9 +1293,42 @@ function Invoke-ApiRoute {
                 "DELETE" { Remove-Holiday -Id $id; return @{ ok = $true } }
             }
         }
+        "templates" {
+            if ($Method -eq "POST" -and $sub -eq "apply") {
+                $sm = 480; if ($Body.PSObject.Properties.Name -contains 'start_min') { $sm = [int]$Body.start_min }
+                $pid = 0;  if ($Body.PSObject.Properties.Name -contains 'person_id') { $pid = [int]$Body.person_id }
+                return ,@(Add-TemplateToProject -Id $id -ProjectId ([int]$Body.project_id) -Date $Body.date -StartMin $sm -PersonId $pid)
+            }
+            switch ($Method) {
+                "GET"    { return ,@(Get-Templates) }
+                "POST"   { return New-Template -Name $Body.name -Tasks @($Body.tasks) }
+                "PUT"    { return Set-TemplateFromBody -Id $id -Body $Body }
+                "DELETE" { Remove-Template -Id $id; return @{ ok = $true } }
+            }
+        }
     }
     $Response.StatusCode = 404
     return @{ error = "no route for $Method $path" }
+}
+
+function Backup-SchedulerData {
+    <#
+    .SYNOPSIS
+        Zips all JSON data files into a timestamped archive under <DataDir>\backups\.
+        Called automatically when the server stops. Safe to call anytime; never throws
+        out (failures are reported by the caller). Backups live inside the data folder
+        but are excluded from the archive (only *.json in the root are captured).
+    .OUTPUTS
+        The path of the zip written, or $null if there was nothing to back up.
+    #>
+    $files = @(Get-ChildItem -Path $script:DataDir -Filter *.json -File -ErrorAction SilentlyContinue)
+    if ($files.Count -eq 0) { return $null }
+    $backupDir = Join-Path $script:DataDir "backups"
+    if (-not (Test-Path $backupDir)) { New-Item -ItemType Directory -Path $backupDir -Force | Out-Null }
+    $stamp = Get-Date -Format 'yyyy-MM-dd_HHmmss'
+    $zip   = Join-Path $backupDir "backup_$stamp.zip"
+    Compress-Archive -Path $files.FullName -DestinationPath $zip -Force
+    return $zip
 }
 
 function Start-SchedulerServer {
@@ -1241,6 +1405,13 @@ function Start-SchedulerServer {
     finally {
         $listener.Stop()
         $listener.Close()
+        # always snapshot the data on shutdown (Ctrl+C runs this finally block)
+        try {
+            $zip = Backup-SchedulerData
+            if ($zip) { Write-Host "Backup saved: $zip" }
+        } catch {
+            Write-Warning "Backup on shutdown failed: $($_.Exception.Message)"
+        }
         Write-Host "Scheduler stopped."
     }
 }

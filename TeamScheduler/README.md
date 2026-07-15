@@ -9,7 +9,7 @@ data/API layer. **No admin rights, no installer, no database engine.**
 powershell -ExecutionPolicy Bypass -File .\Run-Scheduler.ps1
 ```
 
-The browser opens `http://localhost:8770/` automatically. Stop with **Ctrl+C**.
+The browser opens `http://localhost:8770/` automatically. Stop with **Ctrl+C** — on shutdown the data is zipped to `%LOCALAPPDATA%\TeamScheduler\backups\backup_<timestamp>.zip`.
 
 Options: `-Port 8771` (if 8770 is taken), `-NoBrowser`.
 
@@ -23,7 +23,7 @@ Options: `-Port 8771` (if 8770 is taken), `-NoBrowser`.
   the port is taken; pick another high port. Never fall back to `netsh`.
 - **Storage:** JSON files under `%LOCALAPPDATA%\TeamScheduler\` (always
   user-writable): `people.json`, `customers.json`, `environments.json`,
-  `projects.json`, `tasks.json`, `holidays.json`, `meta.json` (id counters).
+  `projects.json`, `tasks.json`, `holidays.json`, `templates.json`, `meta.json` (id counters).
 - **First run** seeds the demo customers/environments/projects/people from
   `seed-data.json` (only when `customers.json` is empty).
 
@@ -34,15 +34,18 @@ Options: `-Port 8771` (if 8770 is taken), `-NoBrowser`.
 - **Click any task** (weekly chip / daily block) to edit or delete it.
 - Project cards have **סגור פרויקט / פתח מחדש** (soft close; tasks stay and render muted).
 - **🎌 חגים** button manages holidays (name + date range). A holiday tints that day on the board and shows a notice when you schedule on it — it warns but does **not** block.
+- In the **פרויקטים** view, click a project's **name** (or **כל המשימות**) to open a full page listing every task for that project across all dates.
+- **📋 תבניות** button manages reusable task templates (a name + a list of title/duration tasks). Apply one to a project with **החל תבנית**: pick a start date/time and it creates the tasks back-to-back, unassigned.
 
 ## API (all JSON, snake_case to match the UI)
 
 | Method | Path | Notes |
 |---|---|---|
-| GET | `/api/bootstrap` | all six collections in one payload |
-| GET/POST | `/api/people`, `/api/customers`, `/api/environments`, `/api/projects`, `/api/tasks`, `/api/holidays` | create with a JSON body |
+| GET | `/api/bootstrap` | all seven collections in one payload |
+| GET/POST | `/api/people`, `/api/customers`, `/api/environments`, `/api/projects`, `/api/tasks`, `/api/holidays`, `/api/templates` | create with a JSON body |
 | PUT/DELETE | `/api/<entity>/{id}` | PUT takes any subset of fields |
 | POST | `/api/projects/{id}/close` / `/api/projects/{id}/open` | soft close / reopen |
+| POST | `/api/templates/{id}/apply` | body `{project_id, date, start_min?, person_id?}` — creates the template's tasks back-to-back on the project |
 | GET | `/api/tasks?from=YYYY-MM-DD&to=YYYY-MM-DD&person_id=N` | filters, all optional |
 | DELETE | `/api/projects/{id}?force=1` | hard delete incl. cascade of its tasks |
 

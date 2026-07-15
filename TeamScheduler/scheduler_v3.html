@@ -69,14 +69,14 @@
   }
   .nav button:first-child{border-inline-start:0}
   .nav button:hover{background:#ece8df}
-  #range{font-size:13px;color:#7c7466;font-variant-numeric:tabular-nums}
+  #range{font-size:20px;color:#7c7466;font-variant-numeric:tabular-nums}
 
-  #addTask,#addPerson,#printBtn,#holBtn{
+  #addTask,#addPerson,#printBtn,#holBtn,#tplBtn{
     background:var(--ink);color:var(--paper);border:0;
     padding:7px 14px;font:inherit;font-size:13px;cursor:pointer;border-radius:3px;
   }
-  #addTask:hover,#addPerson:hover,#printBtn:hover,#holBtn:hover{opacity:.88}
-  #addPerson,#printBtn,#holBtn{background:none;color:var(--ink);border:1px solid var(--rule-strong)}
+  #addTask:hover,#addPerson:hover,#printBtn:hover,#holBtn:hover,#tplBtn:hover{opacity:.88}
+  #addPerson,#printBtn,#holBtn,#tplBtn{background:none;color:var(--ink);border:1px solid var(--rule-strong)}
 
   .modes{display:flex;gap:0;margin-inline-start:auto;border:1px solid var(--rule-strong)}
   .modes button{
@@ -117,6 +117,16 @@
     width:32px;height:32px;min-width:32px;cursor:pointer;font-size:15px;line-height:1;
   }
   .holedit:hover,.holdel:hover{background:#f0ece3}
+  /* task-template editor rows */
+  #tplRows{margin:2px 0 8px}
+  .tplrow{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+  .tplrow .tpltitle{flex:1 1 auto;width:auto;min-width:0}
+  .tplrow .tpldur{width:82px;flex:none}
+  .tplrow .tpldurlbl{font-size:12px;color:#7c7466;flex:none}
+  .tplrow .tpldel{background:none;border:1px solid var(--rule-strong);border-radius:2px;
+    width:30px;height:32px;min-width:30px;flex:none;cursor:pointer;color:#a2543f;font-size:16px;line-height:1}
+  .tplrow .tpldel:hover{background:#f0ece3}
+  .tplhint{font-size:12px;color:#7c7466;margin:4px 0 8px;line-height:1.5}
 
   .board{overflow:auto;padding:0 0 60px}
   .board.hidden{display:none}
@@ -187,18 +197,18 @@
   thead th{
     position:sticky;top:0;z-index:3;background:var(--paper);
     border-bottom:2px solid var(--ink);
-    font-size:13px;font-weight:650;padding:8px 6px;text-align:center;
+    font-size:20px;font-weight:650;padding:8px 6px;text-align:center;
     font-variant-numeric:tabular-nums;
   }
-  thead th small{display:block;font-weight:400;color:#7c7466;font-size:11px;font-variant-numeric:normal}
+  thead th small{display:block;font-weight:400;color:#7c7466;font-size:14px;font-variant-numeric:normal}
   th.person,td.person{
     position:sticky;right:0;z-index:2;background:var(--paper);
     width:var(--name-col);min-width:var(--name-col);
     border-inline-start:2px solid var(--ink);
-    text-align:right;padding:10px 12px;
+    text-align:right;padding:10px 12px;font-size:14px;
   }
   thead th.person{z-index:4}
-  .person .load{display:block;font-size:11px;color:#7c7466;margin-top:6px;font-variant-numeric:tabular-nums}
+  .person .load{display:block;font-size:14px;color:#7c7466;margin-top:6px;font-variant-numeric:tabular-nums}
   td.person.unassigned{font-style:italic;color:#8a8378;background:#f1eee7}
   .vhead.unassigned{font-style:italic;color:#8a8378}
 
@@ -212,9 +222,9 @@
     border-inline-start:3px solid var(--c,#6b7a8f);background:#fff;
     border-radius:2px;cursor:pointer;
   }
-  .chip time{font-size:10px;color:#7c7466;font-variant-numeric:tabular-nums;flex:none;padding-top:1px}
+  .chip time{font-size:12px;color:#7c7466;font-variant-numeric:tabular-nums;flex:none;padding-top:1px}
   .chip .ctitle{
-    font-size:11px;line-height:1.25;overflow:hidden;flex:0 1 auto;min-width:0;
+    font-size:14px;line-height:1.25;overflow:hidden;flex:0 1 auto;min-width:0;
     display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;
   }
   /* environment tag sits at the far LEFT of the weekly chip (RTL: inline-end) */
@@ -333,13 +343,13 @@
   /* environment chip (Option G): inline by default, corner overlay on day blocks */
   .envchip{
     display:inline-block;
-    padding:1px 6px;font-size:8px;line-height:1.5;font-weight:800;
+    padding:1px 6px;font-size:12px;line-height:1.5;font-weight:800;
     text-transform:uppercase;letter-spacing:.03em;
-    color:#000;border-radius:3px;
+    color:#ffffff;border-radius:3px;
     max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
     vertical-align:middle;
-    /* white halo keeps black text readable on dark/gradient env colours */
-    text-shadow:0 0 2px rgba(255,255,255,.95),0 0 2px rgba(255,255,255,.95);
+    /* dark halo keeps white text readable on light/gradient env colours */
+    text-shadow:0 0 20px rgba(255, 255, 255, .95), 0 0 2px rgb(0 0 0 / 95%);
   }
   .vblock .envchip, .block .envchip{
     position:absolute;bottom:0;left:0;right:auto;
@@ -525,6 +535,34 @@
   #prPrevWeek,#prThisWeek,#prNextWeek{padding:8px 16px;font-size:15px}
   .ppctrl input[type=checkbox]{width:20px;height:20px;flex:none;margin:0;cursor:pointer}
   .ppgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(360px,1fr));gap:24px}
+
+  /* ---- project page: full-page list of ALL tasks for one project ---- */
+  .projpage{display:none;padding:22px 24px 70px}
+  .projpage .pjhead{display:flex;align-items:center;gap:16px;flex-wrap:wrap;margin-bottom:2px}
+  .projpage .pjcrumb{font-size:15px;color:#7c7466}
+  .projpage h1{font-size:24px;margin:2px 0 0;font-weight:650;letter-spacing:-.01em}
+  .projpage .pjbadge{font-size:13px;font-weight:650;color:#8a5a3c;border:1px solid #d9c3ad;
+    border-radius:3px;padding:2px 9px;background:#f6e9e0}
+  .projpage .pjsum{font-size:16px;color:#4a4437;margin:10px 0 4px;font-variant-numeric:tabular-nums}
+  .projpage .pjdeps{font-size:14px;color:#3a352c;margin:2px 0 6px}
+  .projpage .pjdeps b{font-weight:650}
+  .projpage .pjacts{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0 16px;align-items:center}
+  .projpage .pjadd{background:var(--ink);color:var(--paper);border:0;border-radius:3px;
+    padding:10px 22px;font:inherit;font-size:16px;cursor:pointer}
+  .projpage .pjadd:hover{opacity:.9}
+  .projpage table.pjt{border-collapse:collapse;width:100%;min-width:0;font-size:15px}
+  .projpage table.pjt th,.projpage table.pjt td{border:0;border-bottom:1px solid var(--rule);
+    padding:11px 12px;text-align:start;vertical-align:middle}
+  .projpage table.pjt thead th{position:sticky;top:0;background:var(--paper);
+    border-bottom:2px solid var(--ink);font-size:14px;color:#4a4437;z-index:1}
+  .projpage table.pjt td.num{font-variant-numeric:tabular-nums;white-space:nowrap}
+  .projpage table.pjt tbody tr{cursor:pointer}
+  .projpage table.pjt tbody tr:hover{background:#faf8f3}
+  .projpage table.pjt .pjenv{font-size:12px;color:#8a8378}
+  .projpage .pjunassigned{color:#a15c34}
+  .projpage .pjempty{font-size:16px;color:#8a8378;padding:24px 2px}
+  .card h2.projlink{cursor:pointer}
+  .card h2.projlink:hover{text-decoration:underline}
   .gcard{background:#fff;border:1px solid var(--rule);display:flex;flex-direction:column;
     overflow:hidden;transition:border-color .1s,transform .08s}
   .gcard:hover{border-color:var(--rule-strong);transform:translateY(-2px)}
@@ -622,6 +660,7 @@
   <button id="addPerson" title="הוספת עובד">+ עובד</button>
   <button id="printBtn" title="הדפסת התצוגה הנוכחית">🖨 הדפסה</button>
   <button id="holBtn" title="ניהול חגים וימי חופשה">🎌 חגים</button>
+  <button id="tplBtn" title="ניהול תבניות משימות">📋 תבניות</button>
 
   <div class="modes" role="group" aria-label="תצוגה">
     <button id="btnProj" aria-pressed="false">פרויקטים</button>
@@ -644,6 +683,7 @@
 </div>
 
 <div class="printpage" id="printPage"></div>
+<div class="projpage" id="projPage"></div>
 
 <div class="modalwrap" id="taskModal">
   <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tHead">
@@ -687,6 +727,44 @@
       <button class="save" id="hSave">הוספה</button>
       <button class="cancel" id="hReset" style="display:none">ביטול עריכה</button>
       <button class="cancel" id="hCancel">סגירה</button>
+    </div>
+  </div>
+</div>
+
+<div class="modalwrap" id="tplModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="tplHead">
+    <h2 id="tplHead">📋 תבניות משימות</h2>
+    <div id="tplList" class="hollist"></div>
+    <label for="tplName">שם התבנית</label>
+    <input id="tplName" type="text" autocomplete="off" placeholder="לדוגמה: הקמת שרת חדש">
+    <label>משימות (כותרת · משך בדקות)</label>
+    <div id="tplRows"></div>
+    <button type="button" id="tplAddRow" class="act" style="margin-top:0">+ הוסף משימה</button>
+    <div class="tplhint">בהחלת התבנית, המשימות נוצרות ברצף (זו אחרי זו) ללא שיבוץ עובד.</div>
+    <div class="merr" id="tplErr"></div>
+    <div class="mbtns">
+      <button class="save" id="tplSave">הוספה</button>
+      <button class="cancel" id="tplReset" style="display:none">ביטול עריכה</button>
+      <button class="cancel" id="tplCancel">סגירה</button>
+    </div>
+  </div>
+</div>
+
+<div class="modalwrap" id="applyTplModal">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="atHead">
+    <h2 id="atHead">החל תבנית על הפרויקט</h2>
+    <div class="tplhint">פרויקט: <b id="atProj"></b></div>
+    <label for="atTemplate">תבנית</label>
+    <select id="atTemplate"></select>
+    <div class="mrow">
+      <div><label for="atDate">תאריך התחלה</label><input id="atDate" type="date"></div>
+      <div><label for="atStart">שעת התחלה</label><input id="atStart" type="time" step="900"></div>
+    </div>
+    <div class="tplhint">המשימות ייווצרו ברצף מהשעה שנבחרה, ללא שיבוץ עובד (לא משובץ).</div>
+    <div class="merr" id="atErr"></div>
+    <div class="mbtns">
+      <button class="save" id="atApply">החל</button>
+      <button class="cancel" id="atCancel">ביטול</button>
     </div>
   </div>
 </div>
@@ -815,6 +893,7 @@ const customers = [];
 const domains = [];
 const projects = [];
 const holidays = [];   // global, date-range; a task on a holiday date is warned, not blocked
+const templates = [];  // global task templates: { id, name, tasks:[{title,duration_min}] }
 
 // virtual "person" for tasks with person_id === 0 (a task on a project, not yet
 // assigned to anyone). It appears as a pool row/column only when it has tasks.
@@ -982,6 +1061,7 @@ async function loadAll(){
   domains.length = 0;   domains.push(...(d.environments || []));   // the UI calls them "domains"
   projects.length = 0;  projects.push(...(d.projects || []));
   holidays.length = 0;  holidays.push(...(d.holidays || []));
+  templates.length = 0; templates.push(...(d.templates || []));
   rebuildLookups();
   assertUniqueEnvColors();
   taskCache = d.tasks || [];
@@ -1394,7 +1474,7 @@ function renderProjects(){
       <header>
         <div class="htext">
           <span class="crumb">${crumb}</span>
-          <h2>${pr.name}</h2>
+          <h2 class="projlink" data-openproj="${pr.id}" title="צפייה בכל המשימות של הפרויקט">${pr.name}</h2>
         </div>
         ${closed ? `<span class="badge">סגור</span>` : ""}
         <span class="share">${share}% מהעומס</span>
@@ -1409,7 +1489,9 @@ function renderProjects(){
       <div class="roster">${roster}</div>
       <ul class="top">${top}</ul>
       <div class="cardacts">
-        ${closed ? "" : `<button class="act" data-taskproj="${pr.id}">+ משימה</button>`}
+        <button class="act" data-openproj="${pr.id}">כל המשימות</button>
+        ${closed ? "" : `<button class="act" data-taskproj="${pr.id}">+ משימה</button>
+        <button class="act" data-applytpl="${pr.id}">החל תבנית</button>`}
         <button class="act" data-editproj="${pr.id}">ערוך</button>
         <button class="act" data-copyproj="${pr.id}">העתק לסביבה</button>
         <button class="act" data-toggleproj="${pr.id}">${closed ? "פתח מחדש" : "סגור פרויקט"}</button>
@@ -1439,6 +1521,14 @@ function renderProjects(){
 
   document.getElementById("addProj").onclick = ()=> openEntModal("project");
 
+  // open the full-page task list for a project (title click or "כל המשימות" button)
+  document.querySelectorAll("#projects [data-openproj]").forEach(b=>{
+    b.onclick = ()=> openProjectPage(+b.dataset.openproj);
+  });
+  // apply a task template to this project
+  document.querySelectorAll("#projects [data-applytpl]").forEach(b=>{
+    b.onclick = ()=> openApplyTpl(+b.dataset.applytpl);
+  });
   // edit a project
   document.querySelectorAll("#projects .act[data-editproj]").forEach(b=>{
     b.onclick = ()=> openEntModal("project", projById[+b.dataset.editproj]);
@@ -1649,8 +1739,9 @@ function breadcrumb(){
 function render(){
   const onBoard = nav.level === "board";
 
-  // any normal navigation leaves the print gallery
+  // any normal navigation leaves the print gallery and the project page
   document.getElementById("printPage").style.display = "none";
+  document.getElementById("projPage").style.display = "none";
 
   // toggle top-level panels
   document.getElementById("hub").classList.toggle("on", !onBoard);
@@ -1884,7 +1975,9 @@ function openTaskModal(task, defaults){
   dlg.classList.add("on");
   document.getElementById("tTitle").focus();
 }
-function closeTaskModal(){ dlg.classList.remove("on"); editingId = null; }
+// when the task editor was opened from the project page, reopen it after a save/delete
+let returnToProject = null;
+function closeTaskModal(){ dlg.classList.remove("on"); editingId = null; returnToProject = null; }
 
 // show a non-blocking notice when the chosen date falls on a holiday (warn-but-allow)
 function updateHolWarn(){
@@ -1920,8 +2013,10 @@ async function saveTask(){
   try{
     if (editingId) await api(`/api/tasks/${editingId}`, "PUT", payload);
     else await api("/api/tasks", "POST", payload);
+    const ret = returnToProject;   // captured before closeTaskModal clears it
     closeTaskModal();
-    await loadAll();
+    await loadAll();               // render() hides the project page
+    if (ret != null) openProjectPage(ret);
   }catch(e){ err.textContent = e.message; }
 }
 
@@ -1929,8 +2024,10 @@ async function deleteTask(){
   if (!editingId) return;
   try{
     await api(`/api/tasks/${editingId}`, "DELETE");
+    const ret = returnToProject;
     closeTaskModal();
     await loadAll();
+    if (ret != null) openProjectPage(ret);
   }catch(e){ document.getElementById("tErr").textContent = e.message; }
 }
 
@@ -2022,6 +2119,145 @@ document.getElementById("hFrom").addEventListener("change", ()=>{
     document.getElementById("hTo").value = f;
 });
 holWrap.addEventListener("click", e=>{ if (e.target === holWrap) closeHolModal(); });
+
+// ---------- task templates (global library) ----------
+const tplWrap   = document.getElementById("tplModal");
+const applyWrap = document.getElementById("applyTplModal");
+let tplEditId = null;      // null = add mode, otherwise the template being edited
+let applyProjId = null;    // project the apply dialog targets
+
+// PS 5.1 can serialize a 1-item tasks array as a scalar object — normalize to an array
+function tplTasksOf(t){
+  const x = t && t.tasks;
+  if (Array.isArray(x)) return x;
+  if (x == null) return [];
+  return [x];
+}
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
+
+function renderTplList(){
+  const wrap = document.getElementById("tplList");
+  if (!templates.length){ wrap.innerHTML = `<div class="holempty">אין תבניות עדיין</div>`; return; }
+  wrap.innerHTML = templates.map(t=>{
+    const n = tplTasksOf(t).length;
+    return `<div class="holrow${t.id===tplEditId?" editing":""}">
+      <div class="holinfo"><b>${esc(t.name)}</b><span>${n} משימות</span></div>
+      <button class="holedit" data-tedit="${t.id}" title="עריכה">✎</button>
+      <button class="holdel"  data-tdel="${t.id}"  title="מחיקה">🗑</button>
+    </div>`;
+  }).join("");
+  wrap.querySelectorAll("[data-tedit]").forEach(b=> b.onclick = ()=> tplLoadForEdit(+b.dataset.tedit));
+  wrap.querySelectorAll("[data-tdel]").forEach(b=> b.onclick = ()=> tplDelete(+b.dataset.tdel));
+}
+function addTplRow(title, dur){
+  const c = document.getElementById("tplRows");
+  c.insertAdjacentHTML("beforeend",
+    `<div class="tplrow">
+       <input type="text" class="tpltitle" placeholder="כותרת משימה" value="${esc(title)}">
+       <input type="number" class="tpldur" min="15" step="15" value="${dur||30}">
+       <span class="tpldurlbl">דק׳</span>
+       <button type="button" class="tpldel" title="הסר">×</button>
+     </div>`);
+  const row = c.lastElementChild;
+  row.querySelector(".tpldel").onclick = ()=> row.remove();
+}
+function readTplRows(){
+  return [...document.querySelectorAll("#tplRows .tplrow")].map(r=>({
+    title: r.querySelector(".tpltitle").value.trim(),
+    duration_min: +r.querySelector(".tpldur").value || 0
+  })).filter(t => t.title);   // drop rows left without a title
+}
+function tplResetEditor(){
+  tplEditId = null;
+  document.getElementById("tplName").value = "";
+  document.getElementById("tplRows").innerHTML = "";
+  addTplRow("", 30);
+  document.getElementById("tplErr").textContent = "";
+  document.getElementById("tplSave").textContent = "הוספה";
+  document.getElementById("tplReset").style.display = "none";
+}
+function tplLoadForEdit(id){
+  const t = templates.find(x=>x.id===id);
+  if (!t) return;
+  tplEditId = id;
+  document.getElementById("tplName").value = t.name;
+  document.getElementById("tplRows").innerHTML = "";
+  const tasks = tplTasksOf(t);
+  if (tasks.length) tasks.forEach(tt=> addTplRow(tt.title, tt.duration_min));
+  else addTplRow("", 30);
+  document.getElementById("tplErr").textContent = "";
+  document.getElementById("tplSave").textContent = "עדכון";
+  document.getElementById("tplReset").style.display = "";
+  renderTplList();
+  document.getElementById("tplName").focus();
+}
+async function tplSave(){
+  const name  = document.getElementById("tplName").value.trim();
+  const tasks = readTplRows();
+  const err   = document.getElementById("tplErr");
+  if (!name){ err.textContent = "נדרש שם תבנית"; return; }
+  if (!tasks.length){ err.textContent = "נדרשת לפחות משימה אחת עם כותרת"; return; }
+  try{
+    if (tplEditId) await api(`/api/templates/${tplEditId}`, "PUT", { name, tasks });
+    else           await api("/api/templates", "POST", { name, tasks });
+    await loadAll();
+    tplResetEditor();
+    renderTplList();
+  }catch(e){ err.textContent = e.message; }
+}
+async function tplDelete(id){
+  if (!confirm("למחוק את התבנית? משימות שכבר נוצרו ממנה יישארו.")) return;
+  try{
+    await api(`/api/templates/${id}`, "DELETE");
+    await loadAll();
+    if (tplEditId === id) tplResetEditor();
+    renderTplList();
+  }catch(e){ document.getElementById("tplErr").textContent = e.message; }
+}
+function openTplModal(){ tplResetEditor(); renderTplList(); tplWrap.classList.add("on"); }
+function closeTplModal(){ tplWrap.classList.remove("on"); }
+
+document.getElementById("tplBtn").onclick    = openTplModal;
+document.getElementById("tplAddRow").onclick = ()=> addTplRow("", 30);
+document.getElementById("tplSave").onclick   = tplSave;
+document.getElementById("tplReset").onclick  = tplResetEditor;
+document.getElementById("tplCancel").onclick = closeTplModal;
+tplWrap.addEventListener("click", e=>{ if (e.target === tplWrap) closeTplModal(); });
+
+// ---- apply a template to a project ----
+function openApplyTpl(projId){
+  applyProjId = projId;
+  const pr = projById[projId];
+  document.getElementById("atProj").textContent = pr ? pr.name : "";
+  const sel = document.getElementById("atTemplate");
+  sel.innerHTML = templates.length
+    ? templates.map(t=>`<option value="${t.id}">${esc(t.name)} · ${tplTasksOf(t).length} משימות</option>`).join("")
+    : `<option value="">— אין תבניות —</option>`;
+  document.getElementById("atDate").value  = iso(dayDate(currentDay));
+  document.getElementById("atStart").value = "08:00";
+  document.getElementById("atErr").textContent = "";
+  applyWrap.classList.add("on");
+}
+function closeApplyTpl(){ applyWrap.classList.remove("on"); applyProjId = null; }
+async function applyTpl(){
+  const err = document.getElementById("atErr");
+  const tid = +document.getElementById("atTemplate").value;
+  if (!tid){ err.textContent = "בחר תבנית"; return; }
+  const date = document.getElementById("atDate").value;
+  if (!date){ err.textContent = "נדרש תאריך"; return; }
+  const [h,m] = (document.getElementById("atStart").value || "08:00").split(":").map(Number);
+  const projId = applyProjId;
+  try{
+    await api(`/api/templates/${tid}/apply`, "POST",
+      { project_id: projId, date, start_min: h*60 + (m||0), person_id: 0 });
+    closeApplyTpl();
+    await loadAll();
+    openProjectPage(projId);   // show the newly created tasks
+  }catch(e){ err.textContent = e.message; }
+}
+document.getElementById("atApply").onclick  = applyTpl;
+document.getElementById("atCancel").onclick = closeApplyTpl;
+applyWrap.addEventListener("click", e=>{ if (e.target === applyWrap) closeApplyTpl(); });
 
 // Board clicks:
 //  - a task chip/block  -> edit that task
@@ -2738,6 +2974,90 @@ function openPrintPage(){
 function closePrintPage(){
   document.getElementById("printPage").style.display = "none";
   render();   // restores the hub/board view for the current nav
+}
+
+// ---------- project page: a full-page list of EVERY task for one project ----------
+let projPageId = null;
+function openProjectPage(projId){
+  projPageId = projId;
+  document.getElementById("hub").classList.remove("on");
+  document.getElementById("board").classList.add("hidden");
+  document.getElementById("printPage").style.display = "none";
+  document.getElementById("projPage").style.display = "block";
+  buildProjectPage();
+  window.scrollTo(0, 0);
+}
+function closeProjectPage(){
+  document.getElementById("projPage").style.display = "none";
+  projPageId = null;
+  render();
+}
+function buildProjectPage(){
+  const el = document.getElementById("projPage");
+  const pr = projById[projPageId];
+  if (!pr){
+    el.innerHTML = `<div class="pjhead"><button class="ppback" id="pjBack">← חזרה</button></div>
+      <div class="pjempty">הפרויקט לא נמצא.</div>`;
+    document.getElementById("pjBack").onclick = closeProjectPage;
+    return;
+  }
+  const { domain, customer } = chainOf(pr.id);
+  const crumb = [customer&&customer.name, domain&&domain.name].filter(Boolean).join(" › ");
+  const closed = !isActive(pr);
+
+  // ALL tasks for this project across every date, ordered by date then start time
+  const list = taskCache.filter(t => t.project_id === pr.id)
+    .slice().sort((a,b)=> (a.date<b.date?-1:a.date>b.date?1:0) || a.start_min - b.start_min);
+  const totMin = list.reduce((a,t)=>a+t.duration_min, 0);
+  const ppl = new Set(list.map(t=>t.person_id));
+  const span = list.length ? `${fmtIso(list[0].date)} – ${fmtIso(list[list.length-1].date)}` : "";
+
+  const deps = depsOf(pr).map(id=>projById[id]).filter(Boolean);
+  const depsHtml = deps.length
+    ? `<div class="pjdeps"><b>תלוי ב:</b> ${deps.map(d=>d.name).join(" · ")}</div>` : "";
+
+  const rows = list.map(t=>{
+    const wd  = DOW_HE[parseIso(t.date).getDay()];
+    const isU = t.person_id === 0;
+    return `<tr data-id="${t.id}">
+        <td class="num">${wd} · ${fmtIso(t.date)}</td>
+        <td class="${isU?"pjunassigned":""}">${personName(t.person_id)}</td>
+        <td class="num">${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}</td>
+        <td class="num">${(t.duration_min/60).toFixed(1)} ש׳</td>
+        <td>${t.title}</td>
+      </tr>`;
+  }).join("");
+
+  el.innerHTML = `
+    <div class="pjhead">
+      <button class="ppback" id="pjBack">← חזרה</button>
+      <div style="min-width:0">
+        <div class="pjcrumb">${crumb}</div>
+        <h1>${pr.name}${closed?` <span class="pjbadge">סגור</span>`:""}</h1>
+      </div>
+    </div>
+    ${depsHtml}
+    <div class="pjsum">סה״כ ${(totMin/60).toFixed(1)} שעות · ${list.length} משימות · ${ppl.size} עובדים${span?` · ${span}`:""}</div>
+    <div class="pjacts">
+      ${closed?"":`<button class="pjadd" id="pjAdd">+ משימה</button>
+      <button class="ppback" id="pjApplyTpl">📋 החל תבנית</button>`}
+    </div>
+    ${list.length
+      ? `<table class="pjt"><thead><tr><th>יום</th><th>עובד</th><th>שעה</th><th>משך</th><th>משימה</th></tr></thead>
+         <tbody>${rows}</tbody></table>`
+      : `<div class="pjempty">אין משימות לפרויקט זה עדיין.</div>`}
+  `;
+  document.getElementById("pjBack").onclick = closeProjectPage;
+  const addBtn = document.getElementById("pjAdd");
+  if (addBtn) addBtn.onclick = ()=>{ returnToProject = pr.id; openTaskModal(null, { project_id: pr.id, person_id: 0 }); };
+  const applyBtn = document.getElementById("pjApplyTpl");
+  if (applyBtn) applyBtn.onclick = ()=> openApplyTpl(pr.id);
+  el.querySelectorAll("table.pjt tbody tr[data-id]").forEach(tr=>{
+    tr.onclick = ()=>{
+      const t = taskCache.find(x=>x.id === +tr.dataset.id);
+      if (t){ returnToProject = pr.id; openTaskModal(t); }
+    };
+  });
 }
 
 loadAll().catch(err=>{
