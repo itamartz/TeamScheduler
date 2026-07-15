@@ -115,3 +115,7 @@ Note there are **two** copies of `scheduler_v3.html`: the one in `TeamScheduler/
 - `TeamScheduler/seed-data.json` — demo data seeded by `Import-SeedData` only when the store is empty.
 - `TeamScheduler/print-layouts-preview.html` — standalone, self-contained mockup of the print layouts (design reference; not served, no API).
 - `TeamScheduler/README.md` — run instructions and API table.
+- `README.md` (repo root) — the GitHub landing page; keep in sync on every push (see "When pushing to GitHub").
+- `docs/*.png` — screenshots referenced by the root README (captured via the screenshot recipe).
+- `scheduler_v3.html` (repo root) — the original static/mock design, **not served** (the live UI is the copy under `TeamScheduler/`).
+- `Scheduler_PowerShell_Spec.docx` — the original build spec.
