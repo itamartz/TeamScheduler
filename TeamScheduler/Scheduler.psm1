@@ -19,6 +19,7 @@
 Add-Type -AssemblyName System.Web
 
 $script:DataDir = Join-Path $env:LOCALAPPDATA "TeamScheduler"
+$script:DebugMode = $false   # -Debug on Start-SchedulerServer: UI prefixes names/titles with #id
 
 # ---------------------------------------------------------------------------
 # storage layer
@@ -1213,6 +1214,7 @@ function Invoke-ApiRoute {
             tasks        = @(Get-Entities "tasks")
             holidays     = @(Get-Entities "holidays")
             templates    = @(Get-Entities "templates")
+            debug        = [bool]$script:DebugMode
         }
     }
 
@@ -1358,8 +1360,10 @@ function Start-SchedulerServer {
     param(
         [int]$Port = 8770,
         [string]$HtmlPath = (Join-Path $PSScriptRoot "scheduler_v3.html"),
-        [switch]$NoBrowser
+        [switch]$NoBrowser,
+        [switch]$Debug
     )
+    $script:DebugMode = [bool]$Debug   # surfaced to the UI via /api/bootstrap
     Initialize-Store
     Import-SeedData
 

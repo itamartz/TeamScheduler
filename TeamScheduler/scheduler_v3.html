@@ -1125,12 +1125,29 @@ async function loadAll(){
   projects.length = 0;  projects.push(...(d.projects || []));
   holidays.length = 0;  holidays.push(...(d.holidays || []));
   templates.length = 0; templates.push(...(d.templates || []));
+  taskCache = d.tasks || [];
+  DEBUG_IDS = !!d.debug;              // server started with -Debug
+  if (DEBUG_IDS) applyDebugIds();     // prefix names/titles with #id (display only, never saved)
   rebuildLookups();
   assertUniqueEnvColors();
-  taskCache = d.tasks || [];
   rebuildTaskIndex();
   render();
 }
+// DEBUG: prepend "#<id> " to every entity's display label. Applied to the in-memory
+// copies each load (server data stays clean); stripDbgId() removes it when a value is
+// read back into an edit field so the prefix is never persisted.
+let DEBUG_IDS = false;
+function applyDebugIds(){
+  const tag = (o, f) => { if (o && o[f] != null) o[f] = `#${o.id} ${o[f]}`; };
+  people.forEach(o => tag(o, "name"));
+  customers.forEach(o => tag(o, "name"));
+  domains.forEach(o => tag(o, "name"));
+  projects.forEach(o => tag(o, "name"));
+  holidays.forEach(o => tag(o, "name"));
+  templates.forEach(o => tag(o, "name"));
+  taskCache.forEach(o => tag(o, "title"));
+}
+const stripDbgId = s => DEBUG_IDS ? String(s == null ? "" : s).replace(/^#\d+\s+/, "") : s;
 
 const hhmm = m => String(Math.floor(m/60)).padStart(2,"0")+":"+String(m%60).padStart(2,"0");
 
@@ -2027,7 +2044,7 @@ function openTaskModal(task, defaults){
   fillTaskSelects(preProj);
   editingId = task ? task.id : null;
   document.getElementById("tHead").textContent = task ? "עריכת משימה" : "משימה חדשה";
-  document.getElementById("tTitle").value = task ? task.title : "";
+  document.getElementById("tTitle").value = task ? stripDbgId(task.title) : "";
   const pid = task ? task.person_id : (defaults && defaults.person_id);
   if (pid != null) document.getElementById("tPerson").value = pid;   // 0 = unassigned
   document.getElementById("tDate").value =
@@ -2170,7 +2187,7 @@ function holLoadForEdit(id){
   const h = holidays.find(x=>x.id===id);
   if (!h) return;
   holEditId = id;
-  document.getElementById("hName").value = h.name;
+  document.getElementById("hName").value = stripDbgId(h.name);
   document.getElementById("hFrom").value = h.from;
   document.getElementById("hTo").value   = h.to;
   document.getElementById("hErr").textContent = "";
@@ -2277,7 +2294,7 @@ function tplLoadForEdit(id){
   const t = templates.find(x=>x.id===id);
   if (!t) return;
   tplEditId = id;
-  document.getElementById("tplName").value = t.name;
+  document.getElementById("tplName").value = stripDbgId(t.name);
   document.getElementById("tplRows").innerHTML = "";
   const tasks = tplTasksOf(t);
   if (tasks.length) tasks.forEach(tt=> addTplRow(tt.title, tt.duration_min));
@@ -2534,7 +2551,7 @@ function openEntModal(kind, item){
   entId = item ? item.id : null;
   document.getElementById("eHead").textContent =
     (item ? "עריכת " : "הוספת ") + ENT_LABEL[kind];
-  document.getElementById("eName").value = item ? item.name : "";
+  document.getElementById("eName").value = item ? stripDbgId(item.name) : "";
   document.getElementById("eErr").textContent = "";
 
   document.getElementById("eColorRow").style.display = kind === "person" ? "none" : "";
