@@ -544,7 +544,8 @@ function New-Project {
         [Parameter(Mandatory)][int]$DomainId,
         [Parameter(Mandatory)][string]$Name,
         [Parameter(Mandatory)]$Color,
-        [AllowEmptyCollection()][int[]]$DependsOn = @()
+        [AllowEmptyCollection()][int[]]$DependsOn = @(),
+        [string]$Deadline
     )
     $env = @(Get-Entities "environments") | Where-Object { $_.id -eq $DomainId } | Select-Object -First 1
     if (-not $env) { throw "Environment $DomainId not found" }
@@ -552,6 +553,9 @@ function New-Project {
     if (@($DependsOn).Count) {
         Test-ProjectDependencies -Id 0 -DependsOn $DependsOn -CustomerId ([int]$env.customer_id)
     }
+    # optional target/deadline date; empty means "no deadline"
+    $dl = $null
+    if (-not [string]::IsNullOrWhiteSpace($Deadline)) { Test-DateString -Date $Deadline; $dl = $Deadline }
     $all = @(Get-Entities "projects")
     $item = [PSCustomObject]@{
         id         = Get-NextId "project"
@@ -561,6 +565,7 @@ function New-Project {
         color      = $Color
         created_at = (Get-Date -Format "yyyy-MM-dd")   # local time, never UTC
         closed_at  = $null
+        deadline   = $dl
         depends_on = @($DependsOn)
     }
     $all += $item
@@ -592,9 +597,13 @@ function Set-Project {
         [string]$Name,
         $Color,
         [int]$DomainId,
-        [AllowEmptyCollection()][int[]]$DependsOn
+        [AllowEmptyCollection()][int[]]$DependsOn,
+        [string]$Deadline
     )
     if ($PSBoundParameters.ContainsKey('Color')) { Test-ColorValue -Color $Color }
+    if ($PSBoundParameters.ContainsKey('Deadline') -and -not [string]::IsNullOrWhiteSpace($Deadline)) {
+        Test-DateString -Date $Deadline
+    }
     if ($PSBoundParameters.ContainsKey('DomainId')) {
         if (-not (@(Get-Entities "environments") | Where-Object { $_.id -eq $DomainId })) {
             throw "Environment $DomainId not found"
@@ -612,6 +621,11 @@ function Set-Project {
             if ($PSBoundParameters.ContainsKey('Name'))      { $p.name      = $Name }
             if ($PSBoundParameters.ContainsKey('Color'))     { $p.color     = $Color }
             if ($PSBoundParameters.ContainsKey('DomainId'))  { $p.domain_id = $DomainId }
+            if ($PSBoundParameters.ContainsKey('Deadline')) {
+                # empty string clears the deadline; Add-Member -Force also upgrades pre-deadline projects
+                $dl = if ([string]::IsNullOrWhiteSpace($Deadline)) { $null } else { $Deadline }
+                $p | Add-Member -NotePropertyName deadline -NotePropertyValue $dl -Force
+            }
             if ($PSBoundParameters.ContainsKey('DependsOn')) {
                 $p | Add-Member -NotePropertyName depends_on -NotePropertyValue @($DependsOn) -Force
             }
@@ -1073,7 +1087,7 @@ function Set-EnvironmentFromBody {
 function Set-ProjectFromBody {
     <# .SYNOPSIS PUT /api/projects/{id} bridge. #>
     param([Parameter(Mandatory)][int]$Id, $Body)
-    $splat = Select-BodyParams -Body $Body -Map @{ name = 'Name'; color = 'Color'; domain_id = 'DomainId' }
+    $splat = Select-BodyParams -Body $Body -Map @{ name = 'Name'; color = 'Color'; domain_id = 'DomainId'; deadline = 'Deadline' }
     if ($Body -and ($Body.PSObject.Properties.Name -contains 'depends_on')) {
         $splat['DependsOn'] = @($Body.depends_on | Where-Object { $_ -ne $null } | ForEach-Object { [int]$_ })
     }
@@ -1239,7 +1253,7 @@ function Invoke-ApiRoute {
                     if ($Body.PSObject.Properties.Name -contains 'depends_on') {
                         $deps = @($Body.depends_on | Where-Object { $_ -ne $null } | ForEach-Object { [int]$_ })
                     }
-                    return New-Project -DomainId $Body.domain_id -Name $Body.name -Color $Body.color -DependsOn $deps
+                    return New-Project -DomainId $Body.domain_id -Name $Body.name -Color $Body.color -DependsOn $deps -Deadline $Body.deadline
                 }
                 "PUT"    { return Set-ProjectFromBody -Id $id -Body $Body }
                 "DELETE" {

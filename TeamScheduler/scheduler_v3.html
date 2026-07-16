@@ -563,6 +563,11 @@
   .projpage .pjempty{font-size:16px;color:#8a8378;padding:24px 2px}
   .card h2.projlink{cursor:pointer}
   .card h2.projlink:hover{text-decoration:underline}
+  /* project target/deadline badge (project cards + project page) */
+  .pdl{font-size:13px;font-weight:600;color:#4a4437;margin:2px 0 8px}
+  .pdl.over{color:#b3543f}
+  .pdl.warn{color:#a15c34}
+  .projpage .pdl{font-size:15px;margin:2px 0 10px}
   .gcard{background:#fff;border:1px solid var(--rule);display:flex;flex-direction:column;
     overflow:hidden;transition:border-color .1s,transform .08s}
   .gcard:hover{border-color:var(--rule-strong);transform:translateY(-2px)}
@@ -778,6 +783,10 @@
       <div id="eCustRow"><label for="eCust">לקוח</label><select id="eCust"></select></div>
       <div id="eEnvRow"><label for="eEnv">סביבה</label><select id="eEnv"></select></div>
     </div>
+    <div id="eDeadlineRow">
+      <label for="eDeadline">תאריך יעד / דדליין (אופציונלי)</label>
+      <input id="eDeadline" type="date">
+    </div>
     <div id="eColorRow">
       <label>צבע</label>
       <div class="ctoggle" role="group" aria-label="סוג צבע">
@@ -955,6 +964,18 @@ function earliestTaskOf(projId){
     if (best === null || key < best) best = key;
   }
   return best;
+}
+
+// project target/deadline badge: neutral, ⛔ overdue (past & still active),
+// or ⚠ at-risk (a task is scheduled after the deadline). "" when no deadline.
+function projDeadlineHtml(pr){
+  const dl = pr && pr.deadline;
+  if (!dl) return "";
+  const overdue = isActive(pr) && dl < iso(new Date());
+  const late = !overdue && taskCache.some(t => t.project_id === pr.id && t.date > dl);
+  const cls = overdue ? "pdl over" : late ? "pdl warn" : "pdl";
+  const tail = overdue ? " · עבר היעד" : late ? " · יש משימות אחרי היעד" : "";
+  return `<div class="${cls}">🎯 יעד: ${fmtIso(dl)}${tail}</div>`;
 }
 
 // ---- color: solid or gradient, rendered as a CSS value ----
@@ -1480,6 +1501,7 @@ function renderProjects(){
         <span class="share">${share}% מהעומס</span>
       </header>
       ${depsHtml}
+      ${projDeadlineHtml(pr)}
       <div class="figs">
         <div><b>${(s.min/60).toFixed(1)}</b><span>שעות</span></div>
         <div><b>${s.count}</b><span>משימות</span></div>
@@ -2446,8 +2468,10 @@ function openEntModal(kind, item){
   // a project needs a Customer + Environment; both are pickable (you can move
   // a project to any customer, not just the one you're currently inside)
   const isProj = kind === "project";
-  document.getElementById("eScopeRow").style.display = isProj ? "" : "none";
-  document.getElementById("eDepsRow").style.display  = isProj ? "" : "none";
+  document.getElementById("eScopeRow").style.display    = isProj ? "" : "none";
+  document.getElementById("eDeadlineRow").style.display = isProj ? "" : "none";
+  document.getElementById("eDepsRow").style.display     = isProj ? "" : "none";
+  if (isProj) document.getElementById("eDeadline").value = (item && item.deadline) || "";
   if (isProj){
     let did, cid;
     if (item){ did = item.domain_id; cid = domainById[did] && domainById[did].customer_id; }
@@ -2484,6 +2508,7 @@ async function saveEnt(){
   if (entKind === "project"){
     const env = +document.getElementById("eEnv").value;
     if (!env){ err.textContent = "יש לבחור סביבה. אם ללקוח אין סביבות, צור סביבה תחילה."; return; }
+    const deadline = document.getElementById("eDeadline").value;   // "" = no deadline
     try{
       // 1) create any brand-new dependency projects first (in this project's environment)
       const newDepIds = [];
@@ -2493,8 +2518,8 @@ async function saveEnt(){
       }
       // 2) full dependency list = checked existing + freshly created
       const deps = readDeps().concat(newDepIds);
-      if (entId) await api(`/api/projects/${entId}`, "PUT",  { name, color, domain_id: env, depends_on: deps });
-      else       await api(`/api/projects`,          "POST", { name, color, domain_id: env, depends_on: deps });
+      if (entId) await api(`/api/projects/${entId}`, "PUT",  { name, color, domain_id: env, depends_on: deps, deadline });
+      else       await api(`/api/projects`,          "POST", { name, color, domain_id: env, depends_on: deps, deadline });
       closeEntModal();
       await loadAll();
     }catch(e){ err.textContent = e.message; }
@@ -3037,6 +3062,7 @@ function buildProjectPage(){
       </div>
     </div>
     ${depsHtml}
+    ${projDeadlineHtml(pr)}
     <div class="pjsum">סה״כ ${(totMin/60).toFixed(1)} שעות · ${list.length} משימות · ${ppl.size} עובדים${span?` · ${span}`:""}</div>
     <div class="pjacts">
       ${closed?"":`<button class="pjadd" id="pjAdd">+ משימה</button>
