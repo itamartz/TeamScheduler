@@ -38,7 +38,11 @@ Do **not** launch the server from an agent/automation shell that is elevated: an
 
 **Backup on shutdown:** `Start-SchedulerServer`'s `finally` block calls `Backup-SchedulerData`, which zips all root `*.json` files into `<DataDir>\backups\backup_<yyyy-MM-dd_HHmmss>.zip` (the `backups\` folder itself is excluded). This runs on a graceful **Ctrl+C** stop — the same path that prints "Scheduler stopped." A hard kill of the console window won't run it. Backups accumulate; there is no auto-pruning.
 
-## When pushing to GitHub
+## Git workflow
+
+**Commit after every self-contained change** (one feature / fix / doc update = one commit) with a clear message, as you go — don't batch many unrelated changes into a big commit. Keep commits local while iterating.
+
+**Push only when the work is finished and verified with no errors** — the front-end script passes `node --check`, any backend change passes its ad-hoc PowerShell test, and the change was exercised (browser/HTTP) without errors. Don't push mid-task or with a known failure. When the user says to push (or the task is done and clean), push all the accumulated commits together.
 
 **Every time you push, update the landing `README.md` (repo root — this is what the GitHub project page shows) so it reflects the new user-facing features in that push.** Add/adjust the **Highlights** bullets, and refresh or add a **screenshot** under `docs/` when a feature is visual (capture it from the running app — see the screenshot recipe below). The root `README.md` is the public face of the repo; do not let it drift behind the app. (`TeamScheduler/README.md` is the run/API doc and should stay in sync too, but the root README is the priority on a push.)
 
@@ -49,7 +53,7 @@ Screenshot recipe (no live user server needed): seed a throwaway data dir, start
 There is no test framework. Verification is done with ad-hoc PowerShell scripts and browser checks:
 
 - **Backend:** call `Set-SchedulerDataDir -Path <throwaway dir>` before `Initialize-Store`, then exercise the CRUD functions directly and assert. This keeps tests off the user's real `%LOCALAPPDATA%\TeamScheduler\` data. Run with `powershell -NoProfile -ExecutionPolicy Bypass -File <test>.ps1`.
-- **HTTP/UI:** start a throwaway server on a spare port pointed at a **copy** of the real data (`Set-SchedulerDataDir` to a temp dir, `Copy-Item` the JSON in), drive it, then stop it. Never verify against the live port 8770 / real data.
+- **HTTP/UI:** start a throwaway server on a spare port pointed at a **copy** of the real data (`Set-SchedulerDataDir` to a temp dir, `Copy-Item` the JSON in), drive it, then stop it. Never verify against the live port 8770 / real data. **Stopping it correctly matters:** an `HttpListener` port is registered by the HTTP.sys kernel driver, so `Get-NetTCPConnection -LocalPort N` reports the owner as **System (PID 4)** — `... | Stop-Process` targets PID 4 and silently fails, leaking the server. Kill the `powershell.exe` process by its script path instead: `Get-CimInstance Win32_Process -Filter "Name='powershell.exe'"` → match `CommandLine` on your temp launcher → `Stop-Process -Id`. Never kill the user's own `Run-Scheduler.ps1` process.
 - To add sample data, generate tasks via `New-Task` against the real data dir; the server does not need to be running (it reads the files on next start).
 - **Front-end logic (offline):** pure functions in `scheduler_v3.html` can be unit-tested without the server or a browser — slice the relevant block out of the `<script>` and `new Function(...)` it in Node with mocked globals (`iso`, `dayDate`, `chainOf`, `taskCache`, …), then assert on the returned HTML/data. The print report functions were verified this way. `node --check` on the extracted script also catches syntax errors before a reload.
 - **Live UI:** the browser-automation tools can drive the running app (read `#…` element state, dispatch `change`/`click`, inspect `document.styleSheets`). Never call `window.print()` while automating — it opens a blocking dialog; stub it (`window.print = ()=>{}`) to verify the print path instead.
