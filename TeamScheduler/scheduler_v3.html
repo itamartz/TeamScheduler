@@ -220,6 +220,11 @@
   td.day{padding:var(--row-pad);min-width:190px;cursor:pointer}
   td.day:hover{background:#faf8f3}
   td.day.empty:hover::after{content:"+ משימה";color:#b3ab9c;font-size:11px;padding-inline-start:4px}
+  /* explicit "+ משימה" row at the bottom of cells that already hold chips */
+  .addtask{font-size:12px;color:#c3bcae;cursor:pointer;padding:3px 4px 0;margin-top:3px;
+    border-top:1px dashed var(--rule)}
+  td.day:hover .addtask{color:#8a8378}
+  .addtask:hover{color:var(--ink);text-decoration:underline}
   .chip{
     display:flex;gap:6px;align-items:flex-start;
     font-size:12px;line-height:1.25;padding:3px 6px;margin-bottom:3px;
@@ -573,6 +578,9 @@
   .pdl.warn{color:#a15c34}
   .projpage .pdl{font-size:15px;margin:2px 0 10px}
   .dlflag{color:#b3543f;margin-inline-end:3px;cursor:help}
+  /* time-overlap (double-booked person) marker */
+  .conflictflag{color:#c0392b;font-weight:700;margin-inline-end:3px;cursor:help}
+  .chip.conflict,.block.conflict,.vblock.conflict{outline:1.5px solid #cc6b57;outline-offset:-1px}
   .gcard{background:#fff;border:1px solid var(--rule);display:flex;flex-direction:column;
     overflow:hidden;transition:border-color .1s,transform .08s}
   .gcard:hover{border-color:var(--rule-strong);transform:translateY(-2px)}
@@ -995,6 +1003,23 @@ function dlFlag(t){
     ? `<span class="dlflag" title="המשימה מתוזמנת אחרי תאריך היעד של הפרויקט">⏰</span>` : "";
 }
 
+// same (real) person double-booked: another task overlaps this one on the same day.
+// Uses taskIndex (all tasks, any scope) since a person is booked regardless of scope.
+function taskHasConflict(t){
+  if (t.person_id === 0) return false;   // the "unassigned" pool is not a person
+  const list = taskIndex.get(t.person_id + "|" + t.date) || [];
+  const end = t.start_min + t.duration_min;
+  for (const o of list){
+    if (o.id === t.id) continue;
+    if (t.start_min < o.start_min + o.duration_min && o.start_min < end) return true;
+  }
+  return false;
+}
+function confFlag(t){
+  return taskHasConflict(t)
+    ? `<span class="conflictflag" title="חפיפה בזמן עם משימה אחרת של אותו עובד">⚠</span>` : "";
+}
+
 // ---- color: solid or gradient, rendered as a CSS value ----
 function cssColor(c){
   if (!c) return "#8a8378";
@@ -1233,11 +1258,13 @@ function renderWeek(){
       const list = forDay(p.id,d);
       if(!list.length) return `<td class="day empty${holCls}" data-pid="${p.id}" data-day="${d}"></td>`;
       const shown = list.slice(0,MAX_CHIPS).map(t=>
-        `<div class="chip" style="${accentStyle(t)}" tabindex="0" data-id="${t.id}"
+        `<div class="chip${taskHasConflict(t)?" conflict":""}" style="${accentStyle(t)}" tabindex="0" data-id="${t.id}"
            title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}">
-           <time>${hhmm(t.start_min)}</time><span class="ctitle">${dlFlag(t)}${t.title}</span>${envChip(t)}</div>`).join("");
+           <time>${hhmm(t.start_min)}</time><span class="ctitle">${confFlag(t)}${dlFlag(t)}${t.title}</span>${envChip(t)}</div>`).join("");
       const rest = list.length - MAX_CHIPS;
-      return `<td class="day${holCls}" data-pid="${p.id}" data-day="${d}">${shown}${rest>0?`<div class="more">+${rest} נוספות</div>`:""}</td>`;
+      // when a cell already has chips there's little empty space to click, so give
+      // an explicit add row at the bottom (clicks fall through to the td.day handler)
+      return `<td class="day${holCls}" data-pid="${p.id}" data-day="${d}">${shown}${rest>0?`<div class="more">+${rest} נוספות</div>`:""}<div class="addtask" title="הוספת משימה">+ משימה</div></td>`;
     }).join("")}
   </tr>`;
   }).join("");
@@ -1279,9 +1306,9 @@ function renderDayHorizontal(){
       const endMin   = Math.min(t.start_min + t.duration_min, DAY_END*60);
       const left  = ((startMin - DAY_START*60)/60)*100/SPAN;
       const width = Math.max(0,(endMin - startMin)/60)*100/SPAN;
-      return `<div class="block" tabindex="0" data-id="${t.id}" style="${accentStyle(t)}
+      return `<div class="block${taskHasConflict(t)?" conflict":""}" tabindex="0" data-id="${t.id}" style="${accentStyle(t)}
         right:${left}%;width:${Math.min(width, 100-left)}%;top:${t._lane*32+3}px"
-        title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}"><span class="bt">${dlFlag(t)}${t.title}</span>${envChip(t)}</div>`;
+        title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}"><span class="bt">${confFlag(t)}${dlFlag(t)}${t.title}</span>${envChip(t)}</div>`;
     }).join("");
     return `<div class="prow">
       <div class="person">${p.name}</div>
@@ -1322,10 +1349,10 @@ function renderDayVertical(){
       const hgt = Math.max(0, y(endMin) - top);
       const w = 100 / n;
       const short = (endMin - startMin) <= 30;
-      return `<div class="vblock${short?" short":""}" tabindex="0" data-id="${t.id}" style="${accentStyle(t)}
+      return `<div class="vblock${short?" short":""}${taskHasConflict(t)?" conflict":""}" tabindex="0" data-id="${t.id}" style="${accentStyle(t)}
         top:${top}px;height:${hgt}px;right:${t._lane*w}%;width:${w}%"
         title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}">
-        ${envChip(t)}<b>${dlFlag(t)}${t.title}</b><time>${hhmm(t.start_min)}</time></div>`;
+        ${envChip(t)}<b>${confFlag(t)}${dlFlag(t)}${t.title}</b><time>${hhmm(t.start_min)}</time></div>`;
     }).join("");
     return `<div class="vcol">
       <div class="vhead${p.id===0?" unassigned":""}" title="${p.name}">${p.name}</div>
@@ -2068,6 +2095,17 @@ async function saveTask(){
   if ((dow === 5 || dow === 6) &&
       !confirm(`התאריך שנבחר הוא ${DOW_HE[dow]} (סוף שבוע) והמשימה לא תופיע בלוח (א׳–ה׳). לשמור בכל זאת?`)){
     return;
+  }
+  // overlap guard: warn if this booking overlaps another task for the same person that day
+  if (payload.person_id !== 0){
+    const end = payload.start_min + payload.duration_min;
+    const clash = (taskIndex.get(payload.person_id + "|" + payload.date) || [])
+      .filter(o => o.id !== editingId)
+      .find(o => payload.start_min < o.start_min + o.duration_min && o.start_min < end);
+    if (clash &&
+        !confirm(`ל${personName(payload.person_id)} כבר יש משימה חופפת בזמן זה: "${clash.title}" (${hhmm(clash.start_min)}–${hhmm(clash.start_min+clash.duration_min)}). לשמור בכל זאת?`)){
+      return;
+    }
   }
   try{
     if (editingId) await api(`/api/tasks/${editingId}`, "PUT", payload);
