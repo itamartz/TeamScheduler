@@ -12,7 +12,8 @@ The UI is **Hebrew / RTL**. Storage is plain local JSON files — **no database,
 - **Four views** of the same data: weekly grid, daily timeline, projects portfolio, and per-person agenda.
 - **Full entity management in the browser**: customers → environments → projects → tasks, plus a shared people list. Projects support **cross-environment dependencies** with schedule/missing warnings.
 - **Project page** — click a project to see a full-page list of **every** task for it across all dates (day, person, time, duration, title).
-- **Project deadlines** — give a project an optional target date; cards and the project page flag it as on-track, ⛔ overdue, or ⚠ at-risk (a task scheduled past it).
+- **Project deadlines** — give a project an optional target date; cards and the project page flag it as on-track, ⛔ overdue, or ⚠ at-risk, and any task scheduled past the deadline gets a ⏰ tag on its chip.
+- **Weekend guard** — the workweek is Sun–Thu, so a task placed on Fri/Sat won't show on the board; the task editor warns you and asks to confirm before saving one.
 - **Task templates** — a reusable library of task lists (title + duration); apply one to any project and it creates the tasks back-to-back, unassigned, from a start date/time.
 - **Holidays** — mark national/company days off as name + date range; the board tints those days and the task editor warns you (but never blocks scheduling).
 - **Print reports** — five B&W A4-landscape layouts (team table, weekly grid, by-project, personal agenda, personal table) over any date range.

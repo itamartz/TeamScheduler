@@ -104,6 +104,10 @@
     margin-top:10px;padding:9px 11px;background:#f6e9e0;border:1px solid #e0c3ad;
     border-radius:3px;color:#8a4b28;font-size:13px;line-height:1.4;
   }
+  .weekendwarn{
+    margin-top:10px;padding:9px 11px;background:#fbeceb;border:1px solid #e0b3ad;
+    border-radius:3px;color:#a2432f;font-size:13px;line-height:1.4;
+  }
   .hollist{max-height:250px;overflow:auto;margin-bottom:14px;border:1px solid var(--rule);border-radius:2px}
   .holempty{padding:16px;color:#a29a8b;font-size:13px;text-align:center}
   .holrow{display:flex;align-items:center;gap:10px;padding:9px 11px;border-bottom:1px solid var(--rule)}
@@ -568,6 +572,7 @@
   .pdl.over{color:#b3543f}
   .pdl.warn{color:#a15c34}
   .projpage .pdl{font-size:15px;margin:2px 0 10px}
+  .dlflag{color:#b3543f;margin-inline-end:3px;cursor:help}
   .gcard{background:#fff;border:1px solid var(--rule);display:flex;flex-direction:column;
     overflow:hidden;transition:border-color .1s,transform .08s}
   .gcard:hover{border-color:var(--rule-strong);transform:translateY(-2px)}
@@ -708,6 +713,7 @@
       <div><label for="tDur">משך (דק׳)</label><input id="tDur" type="number" min="15" step="15" value="30"></div>
     </div>
     <div class="holwarn" id="tHolWarn" style="display:none"></div>
+    <div class="weekendwarn" id="tWeekendWarn" style="display:none"></div>
     <div class="merr" id="tErr"></div>
     <div class="mbtns">
       <button class="save" id="tSave">שמירה</button>
@@ -978,6 +984,17 @@ function projDeadlineHtml(pr){
   return `<div class="${cls}">🎯 יעד: ${fmtIso(dl)}${tail}</div>`;
 }
 
+// a single task scheduled AFTER its project's deadline
+function taskPastDeadline(t){
+  const pr = projById[t.project_id];
+  return !!(pr && pr.deadline && t.date > pr.deadline);
+}
+// small ⏰ tag shown on such a task (on chips, blocks and the project page)
+function dlFlag(t){
+  return taskPastDeadline(t)
+    ? `<span class="dlflag" title="המשימה מתוזמנת אחרי תאריך היעד של הפרויקט">⏰</span>` : "";
+}
+
 // ---- color: solid or gradient, rendered as a CSS value ----
 function cssColor(c){
   if (!c) return "#8a8378";
@@ -1218,7 +1235,7 @@ function renderWeek(){
       const shown = list.slice(0,MAX_CHIPS).map(t=>
         `<div class="chip" style="${accentStyle(t)}" tabindex="0" data-id="${t.id}"
            title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}">
-           <time>${hhmm(t.start_min)}</time><span class="ctitle">${t.title}</span>${envChip(t)}</div>`).join("");
+           <time>${hhmm(t.start_min)}</time><span class="ctitle">${dlFlag(t)}${t.title}</span>${envChip(t)}</div>`).join("");
       const rest = list.length - MAX_CHIPS;
       return `<td class="day${holCls}" data-pid="${p.id}" data-day="${d}">${shown}${rest>0?`<div class="more">+${rest} נוספות</div>`:""}</td>`;
     }).join("")}
@@ -1264,7 +1281,7 @@ function renderDayHorizontal(){
       const width = Math.max(0,(endMin - startMin)/60)*100/SPAN;
       return `<div class="block" tabindex="0" data-id="${t.id}" style="${accentStyle(t)}
         right:${left}%;width:${Math.min(width, 100-left)}%;top:${t._lane*32+3}px"
-        title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}"><span class="bt">${t.title}</span>${envChip(t)}</div>`;
+        title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}"><span class="bt">${dlFlag(t)}${t.title}</span>${envChip(t)}</div>`;
     }).join("");
     return `<div class="prow">
       <div class="person">${p.name}</div>
@@ -1308,7 +1325,7 @@ function renderDayVertical(){
       return `<div class="vblock${short?" short":""}" tabindex="0" data-id="${t.id}" style="${accentStyle(t)}
         top:${top}px;height:${hgt}px;right:${t._lane*w}%;width:${w}%"
         title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}">
-        ${envChip(t)}<b>${t.title}</b><time>${hhmm(t.start_min)}</time></div>`;
+        ${envChip(t)}<b>${dlFlag(t)}${t.title}</b><time>${hhmm(t.start_min)}</time></div>`;
     }).join("");
     return `<div class="vcol">
       <div class="vhead${p.id===0?" unassigned":""}" title="${p.name}">${p.name}</div>
@@ -1993,7 +2010,7 @@ function openTaskModal(task, defaults){
   document.getElementById("tDur").value = task ? task.duration_min : 30;
   document.getElementById("tDelete").style.display = task ? "" : "none";
   document.getElementById("tErr").textContent = "";
-  updateHolWarn();
+  updateTaskDateWarns();
   dlg.classList.add("on");
   document.getElementById("tTitle").focus();
 }
@@ -2013,8 +2030,22 @@ function updateHolWarn(){
     el.style.display = "none";
   }
 }
-document.getElementById("tDate").addEventListener("input",  updateHolWarn);
-document.getElementById("tDate").addEventListener("change", updateHolWarn);
+// Fri(5)/Sat(6) fall outside the Sun–Thu board, so a task there is invisible on it — warn.
+function updateWeekendWarn(){
+  const el  = document.getElementById("tWeekendWarn");
+  const v   = document.getElementById("tDate").value;
+  const dow = v ? parseIso(v).getDay() : -1;
+  if (dow === 5 || dow === 6){
+    el.textContent = `⚠️ ${DOW_HE[dow]} הוא יום סוף שבוע — המשימה לא תופיע בלוח (שבוע העבודה א׳–ה׳).`;
+    el.style.display = "";
+  } else {
+    el.textContent = "";
+    el.style.display = "none";
+  }
+}
+function updateTaskDateWarns(){ updateHolWarn(); updateWeekendWarn(); }
+document.getElementById("tDate").addEventListener("input",  updateTaskDateWarns);
+document.getElementById("tDate").addEventListener("change", updateTaskDateWarns);
 
 async function saveTask(){
   const startVal = document.getElementById("tStart").value || "09:00";
@@ -2032,6 +2063,12 @@ async function saveTask(){
   // person_id 0 is allowed = unassigned
   if (!payload.project_id){ err.textContent = "נדרש פרויקט פעיל"; return; }
   if (!payload.date){ err.textContent = "נדרש תאריך"; return; }
+  // weekend guard: Fri/Sat tasks don't appear on the Sun–Thu board — confirm before saving
+  const dow = parseIso(payload.date).getDay();
+  if ((dow === 5 || dow === 6) &&
+      !confirm(`התאריך שנבחר הוא ${DOW_HE[dow]} (סוף שבוע) והמשימה לא תופיע בלוח (א׳–ה׳). לשמור בכל זאת?`)){
+    return;
+  }
   try{
     if (editingId) await api(`/api/tasks/${editingId}`, "PUT", payload);
     else await api("/api/tasks", "POST", payload);
@@ -3049,7 +3086,7 @@ function buildProjectPage(){
         <td class="${isU?"pjunassigned":""}">${personName(t.person_id)}</td>
         <td class="num">${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}</td>
         <td class="num">${(t.duration_min/60).toFixed(1)} ש׳</td>
-        <td>${t.title}</td>
+        <td>${dlFlag(t)}${t.title}</td>
       </tr>`;
   }).join("");
 
