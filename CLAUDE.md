@@ -27,6 +27,8 @@ powershell -ExecutionPolicy Bypass -File .\Run-Scheduler.ps1 -Port 8771 -NoBrows
 
 `Run-Scheduler.ps1` imports the module and calls `Start-SchedulerServer`, which blocks until Ctrl+C.
 
+**`-Debug` mode** (`Run-Scheduler.ps1 -Debug` → `Start-SchedulerServer -Debug`): sets `$script:DebugMode`, surfaced to the UI as a `debug` boolean in `/api/bootstrap`. When true, the front end's `applyDebugIds()` prefixes every in-memory entity label with `#<id> ` (people/customers/environments/projects/holidays/templates `name`, tasks `title`) right after `loadAll()` fetches — so **every render site shows the id with no per-site changes**, and it's **never persisted** (server data stays clean; `stripDbgId()` removes the prefix wherever a value is read back into an edit field — `eName`, `tTitle`, `hName`, `tplName`). `-Debug` is a plain switch (works because `Start-SchedulerServer` is not an advanced function). Default is off.
+
 Do **not** launch the server from an agent/automation shell that is elevated: an elevated `HttpListener` behaves differently and will bind/behave inconsistently, and it runs against the wrong user context. When the user needs the server started, have them run it themselves (e.g. the `! <command>` prefix runs in their own session).
 
 ## Critical operational fact: what a reload picks up

@@ -54,6 +54,8 @@ powershell -ExecutionPolicy Bypass -File .\Run-Scheduler.ps1 -Port 8771 -NoBrows
 
 The browser opens `http://localhost:8770/`. Stop with **Ctrl+C**.
 
+Add **`-Debug`** to prefix every name/title in the UI with its `#id` (handy for referring to a specific record) — this is display-only and never changes the stored data.
+
 ## Why no admin is needed
 
 - **HTTP:** `System.Net.HttpListener` binds the literal prefix `http://localhost:PORT/`. Windows special-cases `localhost` so a standard user can register it — no `netsh http add urlacl`, no elevation. If a port is taken, use another high port (`-Port 8771`).

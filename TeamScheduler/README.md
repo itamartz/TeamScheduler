@@ -11,7 +11,7 @@ powershell -ExecutionPolicy Bypass -File .\Run-Scheduler.ps1
 
 The browser opens `http://localhost:8770/` automatically. Stop with **Ctrl+C** — on shutdown the data is zipped to `%LOCALAPPDATA%\TeamScheduler\backups\backup_<timestamp>.zip`.
 
-Options: `-Port 8771` (if 8770 is taken), `-NoBrowser`.
+Options: `-Port 8771` (if 8770 is taken), `-NoBrowser`, `-Debug` (prefix every name/title in the UI with its `#id`; display-only, never persisted).
 
 `-ExecutionPolicy Bypass` is a per-process setting and needs no elevation.
 
