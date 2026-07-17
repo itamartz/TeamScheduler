@@ -432,6 +432,8 @@
   /* project dependencies shown on the card */
   .deps{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:2px 0 12px;font-size:11px}
   .depslabel{color:#7c7466;font-weight:600}
+  /* "depends on nothing" - shown instead of hiding the row */
+  .depnone{color:#9a9384;font-weight:600}
   .depchip{
     display:inline-block;padding:1px 7px;border:1px solid var(--rule-strong);
     border-radius:10px;color:#5c5548;background:#f5f2ec;white-space:nowrap;
@@ -1625,6 +1627,10 @@ function renderProjects(){
       const note = anyMissing
         ? `<div class="depwarn">⛔ תלות חסרה בסביבה '${myEnvName}'</div>` : "";
       depsHtml = `<div class="deps"><span class="depslabel">תלוי ב־</span>${chips}</div>${note}`;
+    } else {
+      // say it in words rather than dropping the row: an absent row reads as
+      // "unknown", where this reads as "checked - it depends on nothing"
+      depsHtml = `<div class="deps"><span class="depnone">ללא תלויות</span></div>`;
     }
 
     return `<article class="card${closed?" closed":""}" style="${cardStyle}">
@@ -3214,7 +3220,8 @@ function buildProjectPage(){
 
   const deps = depsOf(pr).map(id=>projById[id]).filter(Boolean);
   const depsHtml = deps.length
-    ? `<div class="pjdeps"><b>תלוי ב:</b> ${deps.map(d=>d.name).join(" · ")}</div>` : "";
+    ? `<div class="pjdeps"><b>תלוי ב:</b> ${deps.map(d=>d.name).join(" · ")}</div>`
+    : `<div class="pjdeps"><span class="depnone">ללא תלויות</span></div>`;
 
   const rows = list.map(t=>{
     const wd  = DOW_HE[parseIso(t.date).getDay()];
