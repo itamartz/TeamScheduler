@@ -20,6 +20,7 @@ Add-Type -AssemblyName System.Web
 
 $script:DataDir = Join-Path $env:LOCALAPPDATA "TeamScheduler"
 $script:DebugMode = $false   # -Debug on Start-SchedulerServer: UI prefixes names/titles with #id
+$script:DefaultLeadDays = 14 # build time a project needs before its own deadline, when unset
 
 # ---------------------------------------------------------------------------
 # storage layer
@@ -485,6 +486,24 @@ function Get-ProjectDependsOn {
     return @($Project.depends_on | Where-Object { $_ -ne $null } | ForEach-Object { [int]$_ })
 }
 
+function Get-ProjectLeadDays {
+    <#
+    .SYNOPSIS
+        A project's lead_days (build time it needs before its own deadline), normalized.
+        Projects created before the field existed have no property - they get the default.
+    #>
+    param([Parameter(Mandatory)]$Project)
+    if ($Project.PSObject.Properties.Name -notcontains 'lead_days') { return $script:DefaultLeadDays }
+    if ($null -eq $Project.lead_days) { return $script:DefaultLeadDays }
+    return [int]$Project.lead_days
+}
+
+function Test-LeadDays {
+    <# .SYNOPSIS  A lead time must be a non-negative whole number of days. #>
+    param([Parameter(Mandatory)][int]$LeadDays)
+    if ($LeadDays -lt 0) { throw "Lead days must be 0 or greater (got $LeadDays)" }
+}
+
 function Test-ProjectDependencies {
     <#
     .SYNOPSIS
@@ -546,7 +565,8 @@ function New-Project {
         [Parameter(Mandatory)][string]$Name,
         [Parameter(Mandatory)]$Color,
         [AllowEmptyCollection()][int[]]$DependsOn = @(),
-        [string]$Deadline
+        [string]$Deadline,
+        [int]$LeadDays = $script:DefaultLeadDays
     )
     $env = @(Get-Entities "environments") | Where-Object { $_.id -eq $DomainId } | Select-Object -First 1
     if (-not $env) { throw "Environment $DomainId not found" }
@@ -554,6 +574,7 @@ function New-Project {
     if (@($DependsOn).Count) {
         Test-ProjectDependencies -Id 0 -DependsOn $DependsOn -CustomerId ([int]$env.customer_id)
     }
+    Test-LeadDays -LeadDays $LeadDays
     # optional target/deadline date; empty means "no deadline"
     $dl = $null
     if (-not [string]::IsNullOrWhiteSpace($Deadline)) { Test-DateString -Date $Deadline; $dl = $Deadline }
@@ -567,6 +588,7 @@ function New-Project {
         created_at = (Get-Date -Format "yyyy-MM-dd")   # local time, never UTC
         closed_at  = $null
         deadline   = $dl
+        lead_days  = $LeadDays
         depends_on = @($DependsOn)
     }
     $all += $item
@@ -599,12 +621,14 @@ function Set-Project {
         $Color,
         [int]$DomainId,
         [AllowEmptyCollection()][int[]]$DependsOn,
-        [string]$Deadline
+        [string]$Deadline,
+        [int]$LeadDays
     )
     if ($PSBoundParameters.ContainsKey('Color')) { Test-ColorValue -Color $Color }
     if ($PSBoundParameters.ContainsKey('Deadline') -and -not [string]::IsNullOrWhiteSpace($Deadline)) {
         Test-DateString -Date $Deadline
     }
+    if ($PSBoundParameters.ContainsKey('LeadDays')) { Test-LeadDays -LeadDays $LeadDays }
     if ($PSBoundParameters.ContainsKey('DomainId')) {
         if (-not (@(Get-Entities "environments") | Where-Object { $_.id -eq $DomainId })) {
             throw "Environment $DomainId not found"
@@ -626,6 +650,10 @@ function Set-Project {
                 # empty string clears the deadline; Add-Member -Force also upgrades pre-deadline projects
                 $dl = if ([string]::IsNullOrWhiteSpace($Deadline)) { $null } else { $Deadline }
                 $p | Add-Member -NotePropertyName deadline -NotePropertyValue $dl -Force
+            }
+            if ($PSBoundParameters.ContainsKey('LeadDays')) {
+                # Add-Member -Force upgrades projects created before the field existed
+                $p | Add-Member -NotePropertyName lead_days -NotePropertyValue $LeadDays -Force
             }
             if ($PSBoundParameters.ContainsKey('DependsOn')) {
                 $p | Add-Member -NotePropertyName depends_on -NotePropertyValue @($DependsOn) -Force
@@ -743,6 +771,7 @@ function Copy-ProjectToEnvironment {
             color      = $p.color
             created_at = (Get-Date -Format "yyyy-MM-dd")
             closed_at  = $null
+            lead_days  = (Get-ProjectLeadDays -Project $p)
             depends_on = @($newDeps)
         }
         [void]$script:_cpCreated.Add($item)
@@ -1088,7 +1117,7 @@ function Set-EnvironmentFromBody {
 function Set-ProjectFromBody {
     <# .SYNOPSIS PUT /api/projects/{id} bridge. #>
     param([Parameter(Mandatory)][int]$Id, $Body)
-    $splat = Select-BodyParams -Body $Body -Map @{ name = 'Name'; color = 'Color'; domain_id = 'DomainId'; deadline = 'Deadline' }
+    $splat = Select-BodyParams -Body $Body -Map @{ name = 'Name'; color = 'Color'; domain_id = 'DomainId'; deadline = 'Deadline'; lead_days = 'LeadDays' }
     if ($Body -and ($Body.PSObject.Properties.Name -contains 'depends_on')) {
         $splat['DependsOn'] = @($Body.depends_on | Where-Object { $_ -ne $null } | ForEach-Object { [int]$_ })
     }
@@ -1255,7 +1284,11 @@ function Invoke-ApiRoute {
                     if ($Body.PSObject.Properties.Name -contains 'depends_on') {
                         $deps = @($Body.depends_on | Where-Object { $_ -ne $null } | ForEach-Object { [int]$_ })
                     }
-                    return New-Project -DomainId $Body.domain_id -Name $Body.name -Color $Body.color -DependsOn $deps -Deadline $Body.deadline
+                    $extra = @{}
+                    if ($Body.PSObject.Properties.Name -contains 'lead_days' -and $null -ne $Body.lead_days -and "$($Body.lead_days)" -ne '') {
+                        $extra['LeadDays'] = [int]$Body.lead_days
+                    }
+                    return New-Project -DomainId $Body.domain_id -Name $Body.name -Color $Body.color -DependsOn $deps -Deadline $Body.deadline @extra
                 }
                 "PUT"    { return Set-ProjectFromBody -Id $id -Body $Body }
                 "DELETE" {

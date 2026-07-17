@@ -511,6 +511,7 @@
   }
   .mrow{display:flex;gap:10px}
   .mrow>div{flex:1;min-width:0}
+  .hint{font-size:12px;color:#8d8677;margin-top:4px;line-height:1.4}
   .merr{color:#b3543f;font-size:12px;min-height:15px;margin-top:8px}
   .mbtns{display:flex;gap:8px;margin-top:12px;align-items:center}
   .mbtns .save{
@@ -576,6 +577,9 @@
   .pdl{font-size:13px;font-weight:600;color:#4a4437;margin:2px 0 8px}
   .pdl.over{color:#b3543f}
   .pdl.warn{color:#a15c34}
+  /* inherited from a project that depends on this one, rather than set here */
+  .pdl.derived{font-weight:500;font-style:italic;cursor:help;
+    border-inline-start:2px solid currentColor;padding-inline-start:6px}
   .projpage .pdl{font-size:15px;margin:2px 0 10px}
   .dlflag{color:#b3543f;margin-inline-end:3px;cursor:help}
   /* time-overlap (double-booked person) marker */
@@ -797,9 +801,16 @@
       <div id="eCustRow"><label for="eCust">לקוח</label><select id="eCust"></select></div>
       <div id="eEnvRow"><label for="eEnv">סביבה</label><select id="eEnv"></select></div>
     </div>
-    <div id="eDeadlineRow">
-      <label for="eDeadline">תאריך יעד / דדליין (אופציונלי)</label>
-      <input id="eDeadline" type="date">
+    <div class="mrow" id="eDeadlineRow">
+      <div>
+        <label for="eDeadline">תאריך יעד / דדליין (אופציונלי)</label>
+        <input id="eDeadline" type="date">
+      </div>
+      <div>
+        <label for="eLead">זמן הקמה (ימים)</label>
+        <input id="eLead" type="number" min="0" step="1">
+        <div class="hint">כמה זמן הפרויקט הזה צריך לפני היעד שלו. התלויות שלו יקבלו יעד נגזר מוקדם יותר בהתאם.</div>
+      </div>
     </div>
     <div id="eColorRow">
       <label>צבע</label>
@@ -969,6 +980,63 @@ function depsOf(p){
   if (d == null || d === "") return [];
   return [Number(d)];
 }
+// a project's build time in days: how long IT needs before its own deadline, and
+// therefore how much earlier everything it depends on has to be finished.
+const DEFAULT_LEAD_DAYS = 14;
+function leadDaysOf(p){
+  const v = p && p.lead_days;
+  if (v == null || v === "") return DEFAULT_LEAD_DAYS;
+  const n = Number(v);
+  return (Number.isFinite(n) && n >= 0) ? n : DEFAULT_LEAD_DAYS;
+}
+const shiftIso = (s, n) => iso(addD(parseIso(s), n));
+
+// ---- effective deadlines: deadline pressure flowing BACKWARDS along depends_on ----
+// SharePoint has a deadline and depends on SQL, so SQL must be done before SharePoint
+// even though nobody set a deadline on SQL. SharePoint also needs leadDaysOf(SharePoint)
+// to build itself, so SQL's derived date is SharePoint's date minus that buffer. This
+// compounds down the chain: each level subtracts its own build time.
+//   effDl(P) = min( P's own deadline, for every active Q depending on P: effDl(Q) - lead(Q) )
+// Returns {date, own, root, via} or null: own=P's own deadline won; root=the project whose
+// real deadline this ultimately derives from; via=the immediate dependent it came through.
+let _effDlCache = null;
+function invalidateEffDeadlines(){ _effDlCache = null; }
+function effDeadlineOf(projId){
+  if (!_effDlCache) buildEffDeadlines();
+  return _effDlCache[projId] || null;
+}
+function buildEffDeadlines(){
+  _effDlCache = {};
+  const dependents = {};   // reverse edges: project id -> ids of the projects that depend on it
+  for (const q of projects){
+    if (!isActive(q)) continue;            // a closed project imposes no urgency on its blockers
+    for (const d of depsOf(q)) (dependents[d] || (dependents[d] = [])).push(q.id);
+  }
+  const visiting = new Set();
+  const walk = id => {
+    if (id in _effDlCache) return _effDlCache[id];
+    if (visiting.has(id)) return null;     // cycles are rejected server-side; guard anyway
+    visiting.add(id);
+    const pr = projById[id];
+    let best = pr && pr.deadline ? { date: pr.deadline, own: true, root: pr, via: null } : null;
+    for (const qid of (dependents[id] || [])){
+      const qe = walk(qid), q = projById[qid];
+      if (!qe || !q) continue;
+      const cand = { date: shiftIso(qe.date, -leadDaysOf(q)), own: false, root: qe.root, via: q };
+      if (!best || cand.date < best.date) best = cand;
+    }
+    visiting.delete(id);
+    _effDlCache[id] = best;
+    return best;
+  };
+  for (const p of projects) walk(p.id);
+}
+// the date a project must actually hit: its own deadline, or the one it inherited. null = none.
+function deadlineDateOf(pr){
+  const e = pr && effDeadlineOf(pr.id);
+  return e ? e.date : null;
+}
+
 // earliest scheduled moment of a project's tasks, as a sortable "YYYY-MM-DD HHMM" string (or null)
 function earliestTaskOf(projId){
   let best = null;
@@ -980,22 +1048,28 @@ function earliestTaskOf(projId){
   return best;
 }
 
-// project target/deadline badge: neutral, ⛔ overdue (past & still active),
-// or ⚠ at-risk (a task is scheduled after the deadline). "" when no deadline.
+// project target/deadline badge: neutral, ⛔ overdue (past & still active), or ⚠ at-risk
+// (a task is scheduled after the deadline). Shows the project's own 🎯 יעד when it has one,
+// otherwise the 🎯 יעד נגזר it inherited from a project that depends on it. "" when neither.
 function projDeadlineHtml(pr){
-  const dl = pr && pr.deadline;
-  if (!dl) return "";
-  const overdue = isActive(pr) && dl < iso(new Date());
-  const late = !overdue && taskCache.some(t => t.project_id === pr.id && t.date > dl);
-  const cls = overdue ? "pdl over" : late ? "pdl warn" : "pdl";
+  const e = pr && effDeadlineOf(pr.id);
+  if (!e) return "";
+  const overdue = isActive(pr) && e.date < iso(new Date());
+  const late = !overdue && taskCache.some(t => t.project_id === pr.id && t.date > e.date);
+  const cls = (overdue ? "pdl over" : late ? "pdl warn" : "pdl") + (e.own ? "" : " derived");
   const tail = overdue ? " · עבר היעד" : late ? " · יש משימות אחרי היעד" : "";
-  return `<div class="${cls}">🎯 יעד: ${fmtIso(dl)}${tail}</div>`;
+  if (e.own) return `<div class="${cls}">🎯 יעד: ${fmtIso(e.date)}${tail}</div>`;
+  // derived: name the dependent it came through, and the real deadline behind it
+  const why = e.root && e.via && e.root.id !== e.via.id
+    ? `נדרש ל־'${e.via.name}', שנגזר מהיעד של '${e.root.name}' (${fmtIso(e.root.deadline)})`
+    : `נדרש ל־'${e.via ? e.via.name : ""}' שהיעד שלו ${fmtIso(e.root ? e.root.deadline : e.date)}`;
+  return `<div class="${cls}" title="${why}">🎯 יעד נגזר: ${fmtIso(e.date)} · נדרש ל־${e.via ? e.via.name : ""}${tail}</div>`;
 }
 
-// a single task scheduled AFTER its project's deadline
+// a single task scheduled AFTER its project's deadline (own or inherited)
 function taskPastDeadline(t){
-  const pr = projById[t.project_id];
-  return !!(pr && pr.deadline && t.date > pr.deadline);
+  const dl = deadlineDateOf(projById[t.project_id]);
+  return !!(dl && t.date > dl);
 }
 // small ⏰ tag shown on such a task (on chips, blocks and the project page)
 function dlFlag(t){
@@ -1129,6 +1203,7 @@ async function loadAll(){
   DEBUG_IDS = !!d.debug;              // server started with -Debug
   if (DEBUG_IDS) applyDebugIds();     // prefix names/titles with #id (display only, never saved)
   rebuildLookups();
+  invalidateEffDeadlines();   // deadlines/deps/lead times may have changed
   assertUniqueEnvColors();
   rebuildTaskIndex();
   render();
@@ -2563,7 +2638,10 @@ function openEntModal(kind, item){
   document.getElementById("eScopeRow").style.display    = isProj ? "" : "none";
   document.getElementById("eDeadlineRow").style.display = isProj ? "" : "none";
   document.getElementById("eDepsRow").style.display     = isProj ? "" : "none";
-  if (isProj) document.getElementById("eDeadline").value = (item && item.deadline) || "";
+  if (isProj){
+    document.getElementById("eDeadline").value = (item && item.deadline) || "";
+    document.getElementById("eLead").value = item ? leadDaysOf(item) : DEFAULT_LEAD_DAYS;
+  }
   if (isProj){
     let did, cid;
     if (item){ did = item.domain_id; cid = domainById[did] && domainById[did].customer_id; }
@@ -2601,6 +2679,11 @@ async function saveEnt(){
     const env = +document.getElementById("eEnv").value;
     if (!env){ err.textContent = "יש לבחור סביבה. אם ללקוח אין סביבות, צור סביבה תחילה."; return; }
     const deadline = document.getElementById("eDeadline").value;   // "" = no deadline
+    const leadRaw = document.getElementById("eLead").value.trim();
+    const lead_days = leadRaw === "" ? DEFAULT_LEAD_DAYS : Number(leadRaw);
+    if (!Number.isInteger(lead_days) || lead_days < 0){
+      err.textContent = "זמן הקמה חייב להיות מספר ימים שלם, 0 או יותר."; return;
+    }
     try{
       // 1) create any brand-new dependency projects first (in this project's environment)
       const newDepIds = [];
@@ -2610,8 +2693,8 @@ async function saveEnt(){
       }
       // 2) full dependency list = checked existing + freshly created
       const deps = readDeps().concat(newDepIds);
-      if (entId) await api(`/api/projects/${entId}`, "PUT",  { name, color, domain_id: env, depends_on: deps, deadline });
-      else       await api(`/api/projects`,          "POST", { name, color, domain_id: env, depends_on: deps, deadline });
+      if (entId) await api(`/api/projects/${entId}`, "PUT",  { name, color, domain_id: env, depends_on: deps, deadline, lead_days });
+      else       await api(`/api/projects`,          "POST", { name, color, domain_id: env, depends_on: deps, deadline, lead_days });
       closeEntModal();
       await loadAll();
     }catch(e){ err.textContent = e.message; }
