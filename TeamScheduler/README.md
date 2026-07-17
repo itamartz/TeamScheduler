@@ -35,6 +35,7 @@ Options: `-Port 8771` (if 8770 is taken), `-NoBrowser`, `-Debug` (prefix every n
 - Project cards have **סגור פרויקט / פתח מחדש** (soft close; tasks stay and render muted).
 - **🎌 חגים** button manages holidays (name + date range). A holiday tints that day on the board and shows a notice when you schedule on it — it warns but does **not** block.
 - In the **פרויקטים** view, click a project's **name** (or **כל המשימות**) to open a full page listing every task for that project across all dates.
+- **Deadlines flow backwards through dependencies.** Give a project a תאריך יעד and every project it depends on inherits a 🎯 **יעד נגזר** — it has to be done early enough for this one to still make its date. Each project's **זמן הקמה** (build time, default 14 days) is how long *it* needs before its own target, so the derived date shifts earlier at every level of the chain. Hover a derived badge to see where it came from.
 - **📋 תבניות** button manages reusable task templates (a name + a list of title/duration tasks). Apply one to a project with **החל תבנית**: pick a start date/time and it creates the tasks back-to-back, unassigned.
 
 ## API (all JSON, snake_case to match the UI)
@@ -48,6 +49,10 @@ Options: `-Port 8771` (if 8770 is taken), `-NoBrowser`, `-Debug` (prefix every n
 | POST | `/api/templates/{id}/apply` | body `{project_id, date, start_min?, person_id?}` — creates the template's tasks back-to-back on the project |
 | GET | `/api/tasks?from=YYYY-MM-DD&to=YYYY-MM-DD&person_id=N` | filters, all optional |
 | DELETE | `/api/projects/{id}?force=1` | hard delete incl. cascade of its tasks |
+
+Project bodies accept `deadline` (local `yyyy-MM-dd`, `""` clears it) and
+`lead_days` (build time before that deadline; default 14, `0` allowed,
+negatives rejected). Both are optional and omitted fields are left untouched.
 
 Rules enforced server-side: environment colors must be unique; deleting a
 customer/environment with children is refused; dates are local `yyyy-MM-dd`

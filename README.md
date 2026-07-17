@@ -13,6 +13,7 @@ The UI is **Hebrew / RTL**. Storage is plain local JSON files — **no database,
 - **Full entity management in the browser**: customers → environments → projects → tasks, plus a shared people list. Projects support **cross-environment dependencies** with schedule/missing warnings.
 - **Project page** — click a project to see a full-page list of **every** task for it across all dates (day, person, time, duration, title).
 - **Project deadlines** — give a project an optional target date; cards and the project page flag it as on-track, ⛔ overdue, or ⚠ at-risk, and any task scheduled past the deadline gets a ⏰ tag on its chip.
+- **Derived deadlines** — a deadline flows **backwards** through dependencies, so the projects blocking it inherit its urgency without needing a date of their own. Each project has a **build time** (default 14 days) that its dependencies must finish before, and it compounds down the chain: SharePoint due 01/08 ⇒ SQL by 18/07 ⇒ Server 2025 by 04/07. Blockers show a 🎯 **יעד נגזר** badge naming what needs them.
 - **Weekend guard** — the workweek is Sun–Thu, so a task placed on Fri/Sat won't show on the board; the task editor warns you and asks to confirm before saving one.
 - **Overlap detection** — two tasks that double-book the same person show a ⚠ marker (red outline) on the board, and the editor confirms before saving an overlapping booking.
 - **Task templates** — a reusable library of task lists (title + duration); apply one to any project and it creates the tasks back-to-back, unassigned, from a start date/time.
@@ -26,6 +27,10 @@ The UI is **Hebrew / RTL**. Storage is plain local JSON files — **no database,
 **Projects portfolio** — per-project load, dependencies, and deadline badges (on-track / overdue / at-risk).
 
 ![Projects portfolio](docs/projects.png)
+
+**Derived deadlines** — only SharePoint has a real target (01/08). SQL and Server 2025 inherit it through the dependency chain, each shifted earlier by the previous project's build time — enough to push Server 2025 past due.
+
+![Derived deadlines](docs/deadlines-derived.png)
 
 **Project page** — click a project to see every task for it across all dates.
 
