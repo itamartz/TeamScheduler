@@ -59,7 +59,8 @@ Task bodies accept `all_day` (bool) and `end_date` (local `yyyy-MM-dd`). A
 (`all_day:true`) covers whole days `date`..`end_date` (inclusive, `end_date >=
 date`) and carries no time (start/duration stored as `0`). The front end measures
 the span in **working days** (Sun–Thu excluding holidays) when deriving the end
-date, but the API just stores the calendar range.
+date, but the API just stores the calendar range. Tasks also accept `description`
+(free text, default `""`) and `percent_done` (int `0..100`, default `0`).
 
 Rules enforced server-side: environment colors must be unique; deleting a
 customer/environment with children is refused; dates are local `yyyy-MM-dd`
