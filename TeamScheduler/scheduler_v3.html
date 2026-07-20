@@ -249,10 +249,23 @@
   /* the app is RTL, so the earlier (start) date sits on the RIGHT; round that edge
      on the start day and the LEFT edge on the end day, leaving week-crossing edges square */
   .spanbar{
+    position:relative;
     display:flex;align-items:center;gap:6px;overflow:hidden;cursor:pointer;
     color:#fff;font-size:14px;line-height:1.2;padding:5px 9px;margin-bottom:3px;min-height:26px;
     border-radius:6px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);
   }
+
+  /* ---- per-task progress bar (percent_done) ---- */
+  .chip{position:relative}
+  .prog{position:absolute;inset-inline:5px;bottom:2px;height:4px;border-radius:3px;
+    background:rgba(0,0,0,.16);overflow:hidden;pointer-events:none}
+  .prog i{display:block;height:100%;background:#2e9e5b}
+  .prog.done i{background:#1c7d43}
+  /* reserve a little space so the bar never sits on the text */
+  .chip:has(.prog){padding-bottom:9px}
+  .spanbar:has(.prog){padding-bottom:10px}
+  .block:has(.prog){padding-bottom:7px}
+  .vblock:has(.prog){padding-bottom:8px}
   .spanbar .stitle{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0}
   /* N/total multi-day progress badge */
   .spanbar .spanday{
@@ -534,10 +547,15 @@
   .cpreview{height:20px;border:1px solid var(--rule-strong);border-radius:3px;margin-top:10px}
   .modal h2{font-size:16px;font-weight:650;margin:0 0 12px}
   .modal label{display:block;font-size:12px;color:#7c7466;margin:10px 0 3px}
-  .modal input,.modal select{
+  .modal input,.modal select,.modal textarea{
     width:100%;padding:6px 8px;font:inherit;font-size:13px;
     border:1px solid var(--rule-strong);border-radius:2px;background:#fff;
   }
+  .modal textarea{resize:vertical;min-height:38px;line-height:1.4}
+  /* progress: slider + number box side by side */
+  .progrow{display:flex;gap:10px;align-items:center}
+  .progrow #tProgress{flex:1;padding:0;accent-color:#2e9e5b}
+  .progrow #tProgressNum{width:80px;flex:none;text-align:center}
   .mrow{display:flex;gap:10px}
   .mrow>div{flex:1;min-width:0}
   .hint{font-size:12px;color:#8d8677;margin-top:4px;line-height:1.4}
@@ -610,6 +628,14 @@
   .projpage table.pjt tbody tr:hover{background:#faf8f3}
   .projpage table.pjt .pjenv{font-size:12px;color:#8a8378}
   .projpage .pjunassigned{color:#a15c34}
+  /* progress cell: mini bar + percent; description under the task title */
+  .projpage table.pjt td.pjprogcell{white-space:nowrap;min-width:120px}
+  .projpage .pjprog{display:inline-block;vertical-align:middle;width:70px;height:7px;border-radius:4px;
+    background:#e7e2d8;overflow:hidden;margin-inline-end:7px}
+  .projpage .pjprog i{display:block;height:100%;background:#2e9e5b}
+  .projpage .pjprog.done i{background:#1c7d43}
+  .projpage .pjpct{font-size:13px;color:#5c5648;font-variant-numeric:tabular-nums}
+  .projpage .pjdesc{font-size:13px;color:#8a8378;margin-top:3px;line-height:1.35;white-space:normal}
   .projpage .pjempty{font-size:16px;color:#8a8378;padding:24px 2px}
   .card h2.projlink{cursor:pointer}
   .card h2.projlink:hover{text-decoration:underline}
@@ -759,6 +785,8 @@
     </div>
     <label for="tTitle">כותרת</label>
     <input id="tTitle" type="text" autocomplete="off">
+    <label for="tDesc">תיאור (אופציונלי)</label>
+    <textarea id="tDesc" rows="2" autocomplete="off" placeholder="פרטים נוספים על המשימה…"></textarea>
     <div class="mrow">
       <div><label for="tDate">תאריך התחלה</label><input id="tDate" type="date"></div>
       <div class="alldaycell"><label class="chk" for="tAllDay"><input id="tAllDay" type="checkbox"> יום מלא / מספר ימים</label></div>
@@ -774,6 +802,11 @@
       <div id="tEndCell"><label for="tEndDate">עד תאריך (כולל)</label><input id="tEndDate" type="date"></div>
     </div>
     <div class="spansummary" id="tSpanSummary" style="display:none"></div>
+    <label for="tProgress">הושלם: <b id="tProgressVal">0%</b></label>
+    <div class="progrow">
+      <input id="tProgress" type="range" min="0" max="100" step="5" value="0">
+      <input id="tProgressNum" type="number" min="0" max="100" step="5" value="0" aria-label="אחוז הושלם">
+    </div>
     <div class="holwarn" id="tHolWarn" style="display:none"></div>
     <div class="weekendwarn" id="tWeekendWarn" style="display:none"></div>
     <div class="merr" id="tErr"></div>
@@ -988,6 +1021,19 @@ const spanDayCount = t => workdaysBetween(t.date, spanEnd(t));
 const daysHe = n => `${n} ${n === 1 ? "יום" : "ימים"}`;   // "1 יום" / "3 ימים"
 // human range label, e.g. "1/1 – 15/1" (single day collapses to one date)
 const spanRangeLabel = t => t.date === spanEnd(t) ? fmtIso(t.date) : `${fmtIso(t.date)} – ${fmtIso(spanEnd(t))}`;
+
+// progress (0..100) and free-text description; both default for tasks predating the fields
+const taskProgress = t => Math.max(0, Math.min(100, Math.round(+(t && t.percent_done) || 0)));
+const taskDesc     = t => (t && t.description) || "";
+// thin progress bar shown on a task when it has any progress (green fill; ✓ look at 100%)
+function progHtml(t){
+  const p = taskProgress(t);
+  if (!p) return "";
+  return `<div class="prog${p>=100?" done":""}" title="${p}% הושלם"><i style="width:${p}%"></i></div>`;
+}
+// tooltip suffixes: " · 60%" and " · <description>" when present
+const tipPct  = t => taskProgress(t) ? ` · ${taskProgress(t)}%` : "";
+const tipDesc = t => taskDesc(t) ? ` · ${taskDesc(t)}` : "";
 // the holiday whose inclusive range covers a "yyyy-MM-dd" date string, or null
 function holidayOn(dateIso){
   for (const h of holidays){
@@ -1444,8 +1490,8 @@ function spanBarHtml(t, i){
   const range = !coveredPrev && t.date !== spanEnd(t)
     ? `<em class="spanrange">${spanRangeLabel(t)}</em>` : "";
   return `<div class="spanbar" tabindex="0" data-id="${t.id}" style="${spanStyle(t)}"
-     title="${chainLabel(t)} · ${t.title} · ${spanRangeLabel(t)} (${daysHe(total)})">
-     <span class="stitle">${dlFlag(t)}${t.title}</span>${counter}${range}${envChip(t)}</div>`;
+     title="${chainLabel(t)} · ${t.title} · ${spanRangeLabel(t)} (${daysHe(total)})${tipPct(t)}${tipDesc(t)}">
+     <span class="stitle">${dlFlag(t)}${t.title}</span>${counter}${range}${envChip(t)}${progHtml(t)}</div>`;
 }
 
 function renderWeek(){
@@ -1479,8 +1525,8 @@ function renderWeek(){
       if(!spans.length && !list.length) return `<td class="day empty${holCls}" data-pid="${p.id}" data-day="${d}"></td>`;
       const shown = list.slice(0,MAX_CHIPS).map(t=>
         `<div class="chip${taskHasConflict(t)?" conflict":""}" style="${accentStyle(t)}" tabindex="0" data-id="${t.id}"
-           title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}">
-           <time>${hhmm(t.start_min)}</time><span class="ctitle">${confFlag(t)}${dlFlag(t)}${t.title}</span>${envChip(t)}</div>`).join("");
+           title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}${tipPct(t)}${tipDesc(t)}">
+           <time>${hhmm(t.start_min)}</time><span class="ctitle">${confFlag(t)}${dlFlag(t)}${t.title}</span>${envChip(t)}${progHtml(t)}</div>`).join("");
       const rest = list.length - MAX_CHIPS;
       // when a cell already has chips there's little empty space to click, so give
       // an explicit add row at the bottom (clicks fall through to the td.day handler)
@@ -1528,7 +1574,7 @@ function renderDayHorizontal(){
       const width = Math.max(0,(endMin - startMin)/60)*100/SPAN;
       return `<div class="block${taskHasConflict(t)?" conflict":""}" tabindex="0" data-id="${t.id}" style="${accentStyle(t)}
         right:${left}%;width:${Math.min(width, 100-left)}%;top:${t._lane*32+3}px"
-        title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}"><span class="bt">${confFlag(t)}${dlFlag(t)}${t.title}</span>${envChip(t)}</div>`;
+        title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}${tipPct(t)}${tipDesc(t)}"><span class="bt">${confFlag(t)}${dlFlag(t)}${t.title}</span>${envChip(t)}${progHtml(t)}</div>`;
     }).join("");
     return `<div class="prow">
       <div class="person">${p.name}</div>
@@ -1571,8 +1617,8 @@ function renderDayVertical(){
       const short = (endMin - startMin) <= 30;
       return `<div class="vblock${short?" short":""}${taskHasConflict(t)?" conflict":""}" tabindex="0" data-id="${t.id}" style="${accentStyle(t)}
         top:${top}px;height:${hgt}px;right:${t._lane*w}%;width:${w}%"
-        title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}">
-        ${envChip(t)}<b>${confFlag(t)}${dlFlag(t)}${t.title}</b><time>${hhmm(t.start_min)}</time></div>`;
+        title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}${tipPct(t)}${tipDesc(t)}">
+        ${envChip(t)}<b>${confFlag(t)}${dlFlag(t)}${t.title}</b><time>${hhmm(t.start_min)}</time>${progHtml(t)}</div>`;
     }).join("");
     return `<div class="vcol">
       <div class="vhead${p.id===0?" unassigned":""}" title="${p.name}">${p.name}</div>
@@ -1597,8 +1643,8 @@ function dailySpansBand(){
     for (const t of spansForDayIdx(p.id, currentDay)){
       const who = p.id === 0 ? "לא משובץ" : shortName(p.name);
       items.push(`<div class="spanbar rstart rend" data-id="${t.id}" tabindex="0" style="${spanStyle(t)}"
-        title="${chainLabel(t)} · ${t.title} · ${spanRangeLabel(t)} (${daysHe(spanDayCount(t))})">
-        <span class="stitle">${who}: ${dlFlag(t)}${t.title}</span><em class="spanrange">${spanRangeLabel(t)}</em>${envChip(t)}</div>`);
+        title="${chainLabel(t)} · ${t.title} · ${spanRangeLabel(t)} (${daysHe(spanDayCount(t))})${tipPct(t)}${tipDesc(t)}">
+        <span class="stitle">${who}: ${dlFlag(t)}${t.title}</span><em class="spanrange">${spanRangeLabel(t)}</em>${envChip(t)}${progHtml(t)}</div>`);
     }
   }
   return items.length ? `<div class="alldayband"><span class="adlabel">🗓 יום מלא</span>${items.join("")}</div>` : "";
@@ -2268,6 +2314,8 @@ function openTaskModal(task, defaults){
   editingId = task ? task.id : null;
   document.getElementById("tHead").textContent = task ? "עריכת משימה" : "משימה חדשה";
   document.getElementById("tTitle").value = task ? stripDbgId(task.title) : "";
+  document.getElementById("tDesc").value = task ? (task.description || "") : "";
+  setProgress(task ? taskProgress(task) : 0);
   const pid = task ? task.person_id : (defaults && defaults.person_id);
   if (pid != null) document.getElementById("tPerson").value = pid;   // 0 = unassigned
   document.getElementById("tDate").value =
@@ -2368,6 +2416,16 @@ document.getElementById("tEndDate").addEventListener("input", recomputeSpan);
 document.getElementById("tDate").addEventListener("input",  ()=>{ if (document.getElementById("tAllDay").checked) recomputeSpan(); updateTaskDateWarns(); });
 document.getElementById("tDate").addEventListener("change", ()=>{ if (document.getElementById("tAllDay").checked) recomputeSpan(); updateTaskDateWarns(); });
 
+// keep the progress slider, number box and "%" label in sync (0..100)
+function setProgress(v){
+  v = Math.max(0, Math.min(100, Math.round(+v || 0)));
+  document.getElementById("tProgress").value    = v;
+  document.getElementById("tProgressNum").value = v;
+  document.getElementById("tProgressVal").textContent = v + "%";
+}
+document.getElementById("tProgress").addEventListener("input",    e=> setProgress(e.target.value));
+document.getElementById("tProgressNum").addEventListener("input", e=> setProgress(e.target.value));
+
 // Read the editor into an API payload (timed or all-day span). Returns null and
 // shows an error on invalid input. Shared by save and duplicate.
 function buildTaskPayload(){
@@ -2377,6 +2435,8 @@ function buildTaskPayload(){
     person_id:    +document.getElementById("tPerson").value,
     project_id:   +document.getElementById("tProject").value,
     title:        document.getElementById("tTitle").value.trim(),
+    description:  document.getElementById("tDesc").value.trim(),
+    percent_done: Math.max(0, Math.min(100, +document.getElementById("tProgressNum").value || 0)),
     date:         document.getElementById("tDate").value,
     all_day:      allDay,
     start_min:    0, duration_min: 0, end_date: null
@@ -3157,6 +3217,7 @@ function printRows(){
       id:t.id, pid:t.person_id, person:personName(t.person_id),
       start:t.start_min, dur:t.duration_min, title:t.title, projId:t.project_id,
       allDay: isSpan(t), endIso: isSpan(t) ? spanEnd(t) : null, days: isSpan(t) ? spanDayCount(t) : 0,
+      pct: taskProgress(t),
       proj: ch.project  ? ch.project.name  : "—",
       env:  ch.domain   ? ch.domain.name   : "—",
       cust: ch.customer ? ch.customer.name : "—",
@@ -3189,13 +3250,13 @@ function reportTable(){
   const total = rows.reduce((s,r)=>s+r.dur,0);
   const body = rows.map(r=>`<tr>
       <td>${r.person}</td><td class="num">${r.dayLabel}</td><td class="num">${rSpan(r)}</td>
-      <td class="num">${rHrs(r.dur)}</td><td>${r.title}</td><td>${r.proj}</td><td>${r.env}</td><td>${r.cust}</td>
+      <td class="num">${rHrs(r.dur)}</td><td class="num">${r.pct}%</td><td>${r.title}</td><td>${r.proj}</td><td>${r.env}</td><td>${r.cust}</td>
     </tr>`).join("");
   return rHead("דוח משימות · צוות", [scope, rng, `${rows.length} משימות`, `סה״כ ${rHrs(total)} ש׳`]) +
     (rows.length
-      ? `<table class="rt"><thead><tr><th>עובד</th><th>יום</th><th>שעה</th><th class="num">משך</th><th>משימה</th><th>פרויקט</th><th>סביבה</th><th>לקוח</th></tr></thead>
+      ? `<table class="rt"><thead><tr><th>עובד</th><th>יום</th><th>שעה</th><th class="num">משך</th><th class="num">הושלם</th><th>משימה</th><th>פרויקט</th><th>סביבה</th><th>לקוח</th></tr></thead>
          <tbody>${body}</tbody>
-         <tfoot><tr><td colspan="8">סה״כ: ${rHrs(total)} שעות · ${rows.length} משימות</td></tr></tfoot></table>`
+         <tfoot><tr><td colspan="9">סה״כ: ${rHrs(total)} שעות · ${rows.length} משימות</td></tr></tfoot></table>`
       : `<div class="rp-empty">אין משימות בטווח הנבחר.</div>`);
 }
 // --- manager: text grid (person × day, one column per date in range) ---
@@ -3466,12 +3527,16 @@ function buildProjectPage(){
     const dayCell  = isSpan(t) ? spanRangeLabel(t) : `${wd} · ${fmtIso(t.date)}`;
     const timeCell = isSpan(t) ? "כל היום" : `${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}`;
     const lenCell  = isSpan(t) ? `${spanDayCount(t)} ${spanDayCount(t)===1?"יום":"ימים"}` : `${(t.duration_min/60).toFixed(1)} ש׳`;
+    const pct = taskProgress(t);
+    const progCell = `<div class="pjprog${pct>=100?" done":""}" title="${pct}%"><i style="width:${pct}%"></i></div><span class="pjpct">${pct}%</span>`;
+    const desc = taskDesc(t) ? `<div class="pjdesc">${taskDesc(t)}</div>` : "";
     return `<tr data-id="${t.id}">
         <td class="num">${dayCell}</td>
         <td class="${isU?"pjunassigned":""}">${personName(t.person_id)}</td>
         <td class="num">${timeCell}</td>
         <td class="num">${lenCell}</td>
-        <td>${dlFlag(t)}${t.title}</td>
+        <td class="pjprogcell">${progCell}</td>
+        <td>${dlFlag(t)}${t.title}${desc}</td>
       </tr>`;
   }).join("");
 
@@ -3491,7 +3556,7 @@ function buildProjectPage(){
       <button class="ppback" id="pjApplyTpl">📋 החל תבנית</button>`}
     </div>
     ${list.length
-      ? `<table class="pjt"><thead><tr><th>יום</th><th>עובד</th><th>שעה</th><th>משך</th><th>משימה</th></tr></thead>
+      ? `<table class="pjt"><thead><tr><th>יום</th><th>עובד</th><th>שעה</th><th>משך</th><th>התקדמות</th><th>משימה</th></tr></thead>
          <tbody>${rows}</tbody></table>`
       : `<div class="pjempty">אין משימות לפרויקט זה עדיין.</div>`}
   `;

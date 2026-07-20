@@ -810,9 +810,12 @@ function New-Task {
         [int]$StartMin = 480,
         [int]$DurationMin = 30,
         [switch]$AllDay,
-        [string]$EndDate
+        [string]$EndDate,
+        [string]$Description = "",
+        [int]$PercentDone = 0
     )
     Test-DateString -Date $Date
+    if ($PercentDone -lt 0 -or $PercentDone -gt 100) { throw "percent_done must be 0..100" }
     if ($PersonId -ne 0 -and -not (@(Get-Entities "people") | Where-Object { $_.id -eq $PersonId })) {
         throw "Person $PersonId not found"
     }
@@ -840,6 +843,8 @@ function New-Task {
         duration_min = $DurationMin
         all_day      = [bool]$AllDay
         end_date     = $EndDate
+        description  = [string]$Description
+        percent_done = [int]$PercentDone
     }
     $all += $item
     Save-Entities "tasks" $all
@@ -867,9 +872,11 @@ function Set-Task {
         [Parameter(Mandatory)][int]$Id,
         [int]$PersonId, [int]$ProjectId, [string]$Title,
         [string]$Date, [int]$StartMin, [int]$DurationMin,
-        [bool]$AllDay, [string]$EndDate
+        [bool]$AllDay, [string]$EndDate,
+        [string]$Description, [int]$PercentDone
     )
     if ($PSBoundParameters.ContainsKey('Date')) { Test-DateString -Date $Date }
+    if ($PSBoundParameters.ContainsKey('PercentDone') -and ($PercentDone -lt 0 -or $PercentDone -gt 100)) { throw "percent_done must be 0..100" }
     if ($PSBoundParameters.ContainsKey('PersonId')) {
         if ($PersonId -ne 0 -and -not (@(Get-Entities "people") | Where-Object { $_.id -eq $PersonId })) {
             throw "Person $PersonId not found"   # 0 = unassigned
@@ -892,6 +899,8 @@ function Set-Task {
             if ($PSBoundParameters.ContainsKey('DurationMin')) { $t.duration_min = $DurationMin }
             if ($PSBoundParameters.ContainsKey('AllDay'))      { $t | Add-Member -NotePropertyName all_day  -NotePropertyValue ([bool]$AllDay) -Force }
             if ($PSBoundParameters.ContainsKey('EndDate'))     { $t | Add-Member -NotePropertyName end_date -NotePropertyValue $EndDate -Force }
+            if ($PSBoundParameters.ContainsKey('Description')) { $t | Add-Member -NotePropertyName description  -NotePropertyValue ([string]$Description) -Force }
+            if ($PSBoundParameters.ContainsKey('PercentDone')) { $t | Add-Member -NotePropertyName percent_done -NotePropertyValue ([int]$PercentDone) -Force }
             # normalize: an all-day task carries a valid span and no time; a timed task carries neither
             $isAll = ($t.PSObject.Properties.Name -contains 'all_day') -and [bool]$t.all_day
             if ($isAll) {
@@ -1160,6 +1169,7 @@ function Set-TaskFromBody {
         person_id = 'PersonId'; project_id = 'ProjectId'; title = 'Title'
         date = 'Date'; start_min = 'StartMin'; duration_min = 'DurationMin'
         all_day = 'AllDay'; end_date = 'EndDate'
+        description = 'Description'; percent_done = 'PercentDone'
     }
     return Set-Task -Id $Id @splat
 }
@@ -1299,7 +1309,11 @@ function Invoke-ApiRoute {
                     if ($Body.PSObject.Properties.Name -contains 'all_day') { $allDay = [bool]$Body.all_day }
                     $endDate = $null
                     if ($Body.PSObject.Properties.Name -contains 'end_date') { $endDate = [string]$Body.end_date }
-                    return New-Task -PersonId $Body.person_id -ProjectId $Body.project_id -Title $Body.title -Date $Body.date -StartMin $Body.start_min -DurationMin $Body.duration_min -AllDay:$allDay -EndDate $endDate
+                    $desc = ""
+                    if ($Body.PSObject.Properties.Name -contains 'description') { $desc = [string]$Body.description }
+                    $pct = 0
+                    if ($Body.PSObject.Properties.Name -contains 'percent_done') { $pct = [int]$Body.percent_done }
+                    return New-Task -PersonId $Body.person_id -ProjectId $Body.project_id -Title $Body.title -Date $Body.date -StartMin $Body.start_min -DurationMin $Body.duration_min -AllDay:$allDay -EndDate $endDate -Description $desc -PercentDone $pct
                 }
                 "PUT"    { return Set-TaskFromBody -Id $id -Body $Body }
                 "DELETE" { Remove-Task -Id $id; return @{ ok = $true } }
