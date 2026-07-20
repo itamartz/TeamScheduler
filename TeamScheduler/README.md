@@ -54,6 +54,13 @@ Project bodies accept `deadline` (local `yyyy-MM-dd`, `""` clears it) and
 `lead_days` (build time before that deadline; default 14, `0` allowed,
 negatives rejected). Both are optional and omitted fields are left untouched.
 
+Task bodies accept `all_day` (bool) and `end_date` (local `yyyy-MM-dd`). A
+**timed** task uses `start_min` + `duration_min` as before; an **all-day span**
+(`all_day:true`) covers whole days `date`..`end_date` (inclusive, `end_date >=
+date`) and carries no time (start/duration stored as `0`). The front end measures
+the span in **working days** (Sun–Thu excluding holidays) when deriving the end
+date, but the API just stores the calendar range.
+
 Rules enforced server-side: environment colors must be unique; deleting a
 customer/environment with children is refused; dates are local `yyyy-MM-dd`
 (never UTC — no day shifts); Hebrew round-trips as UTF-8 without BOM.

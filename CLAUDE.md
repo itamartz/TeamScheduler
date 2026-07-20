@@ -50,6 +50,17 @@ Do **not** launch the server from an agent/automation shell that is elevated: an
 
 Screenshot recipe (no live user server needed): seed a throwaway data dir, start `Start-SchedulerServer` on a spare port pointed at it (optionally with a temp `-HtmlPath` copy that auto-navigates to the view you want), then `chrome.exe --headless --screenshot=<path> --window-size=W,H http://localhost:<port>/` → copy the PNG into `docs/`. Always tear the throwaway server + temp data down afterward.
 
+## Upgrades / backward compatibility (in-place, no migration step)
+
+**A user updates by dropping in the new files and restarting — their existing `%LOCALAPPDATA%\TeamScheduler\` data must keep working untouched. There is no migration script and there must never need to be one.** So every schema change has to upgrade an old store *in place, lazily, on read*:
+
+- **New entity fields default when absent.** Readers must treat a missing property as its default, never assume it exists: `all_day` absent ⇒ timed task; `end_date` absent ⇒ none; `deadline`/`lead_days` absent ⇒ defaulted (`Get-ProjectLeadDays`, `Add-Member -Force` on write). The front end normalizes on load (`isSpan(t)` is `!!t.all_day`, etc.).
+- **New `meta.json` id counters are added on first use** — `Get-NextId` creates any missing kind (this is how the `holiday`/`template` counters appeared in stores that predated them).
+- **New collections default to empty** — `Get-Entities` returns `@()` for a file that doesn't exist yet; `bootstrap` always returns all collections.
+- **Never require the user to re-enter or convert data, and never write a one-off "upgrade" script that must be run.** If a change can't be made backward-compatible this way, stop and flag it — that's a design smell here.
+
+When adding a field, do the same as the existing ones: default it on read, `Add-Member -Force` it on write, normalize it in the front end, and confirm an old store (a copy of real data, or a store seeded without the new field) still loads and renders.
+
 ## Testing
 
 There is no test framework. Verification is done with ad-hoc PowerShell scripts and browser checks:
