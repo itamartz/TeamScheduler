@@ -250,12 +250,15 @@
      on the start day and the LEFT edge on the end day, leaving week-crossing edges square */
   .spanbar{
     display:flex;align-items:center;gap:6px;overflow:hidden;cursor:pointer;
-    color:#fff;font-size:13px;line-height:1.2;padding:4px 8px;margin-bottom:3px;min-height:24px;
-    box-shadow:inset 0 0 0 1px rgba(0,0,0,.06);
+    color:#fff;font-size:14px;line-height:1.2;padding:5px 9px;margin-bottom:3px;min-height:26px;
+    border-radius:6px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.08);
   }
-  .spanbar.rstart{border-top-right-radius:10px;border-bottom-right-radius:10px}
-  .spanbar.rend{border-top-left-radius:10px;border-bottom-left-radius:10px}
   .spanbar .stitle{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0}
+  /* N/total multi-day progress badge */
+  .spanbar .spanday{
+    flex:none;font-size:11px;font-weight:600;font-variant-numeric:tabular-nums;
+    background:rgba(255,255,255,.28);border-radius:8px;padding:0 6px;line-height:17px;
+  }
   .spanbar .spanrange{font-style:normal;font-size:11px;opacity:.92;flex:none;font-variant-numeric:tabular-nums;white-space:nowrap}
   .spanbar .envchip{flex:none;margin-inline-start:auto;color:#fff}
   .spanbar .dlflag{filter:drop-shadow(0 0 1px rgba(0,0,0,.5))}
@@ -1398,8 +1401,8 @@ function projectStats(projId, dates){
 //  swatch-to-name key helps read the board)
 function renderLegend(){
   const el = document.getElementById("legend");
-  // shown on any board sub-view (week/day/people/projects) while no customer/env is selected
-  const show = nav.level==="board" && nav.customerId==null && nav.domainId==null;
+  // always shown on the board (every sub-view and drill level) as a colour key
+  const show = nav.level==="board";
   el.classList.toggle("on", show);
   if (!show){ el.innerHTML = ""; return; }
 
@@ -1428,22 +1431,21 @@ const MAX_CHIPS = 3;
 // solid/gradient fill for an all-day span bar (project colour, greyed when closed)
 const spanStyle = t => `background:${cssColor(projColor(t))};`;
 
-// one all-day span segment inside weekday column i. Rounds the true start/end edges,
-// leaves week-crossing edges square, and prints the title once on the first covered column.
+// An all-day span renders as a self-contained pill in EVERY working day it covers,
+// so each day reads as its own task ("Task 1" on day 1, "Task 1" on day 2 …). A small
+// N/total counter shows the multi-day progress; the first covered column also carries
+// the date range so the full span is legible at a glance.
 function spanBarHtml(t, i){
   const thisIso = iso(dayDate(i));
-  const isStart = t.date === thisIso;
-  const isEnd   = spanEnd(t) === thisIso;
-  const coveredPrev = i > 0 && spanCoversIso(t, iso(dayDate(i-1)));   // covered by the column to the right (earlier date)
-  const contBefore  = i === 0 && t.date < thisIso;                    // continues into an earlier week
-  const contAfter   = i === DAYS.length-1 && spanEnd(t) > thisIso;    // continues into a later week
-  const cls = ["spanbar", isStart?"rstart":"", isEnd?"rend":"",
-               contBefore?"contb":"", contAfter?"conta":""].filter(Boolean).join(" ");
-  const label = !coveredPrev
-    ? `<span class="stitle">${dlFlag(t)}${t.title}</span><em class="spanrange">${spanRangeLabel(t)} · ${daysHe(spanDayCount(t))}</em>${envChip(t)}`
-    : "";
-  return `<div class="${cls}" tabindex="0" data-id="${t.id}" style="${spanStyle(t)}"
-     title="${chainLabel(t)} · ${t.title} · ${spanRangeLabel(t)} (${daysHe(spanDayCount(t))})">${label}</div>`;
+  const coveredPrev = i > 0 && spanCoversIso(t, iso(dayDate(i-1)));   // an earlier column already showed the range
+  const total = spanDayCount(t);
+  const counter = total > 1 && isWorkdayIso(thisIso)
+    ? `<span class="spanday">${workdaysBetween(t.date, thisIso)}/${total}</span>` : "";
+  const range = !coveredPrev && t.date !== spanEnd(t)
+    ? `<em class="spanrange">${spanRangeLabel(t)}</em>` : "";
+  return `<div class="spanbar" tabindex="0" data-id="${t.id}" style="${spanStyle(t)}"
+     title="${chainLabel(t)} · ${t.title} · ${spanRangeLabel(t)} (${daysHe(total)})">
+     <span class="stitle">${dlFlag(t)}${t.title}</span>${counter}${range}${envChip(t)}</div>`;
 }
 
 function renderWeek(){
@@ -1469,7 +1471,9 @@ function renderWeek(){
     ${nameCell}
     ${DAYS.map((_,d)=>{
       const holCls = holByDay[d] ? " holiday" : "";
-      const spans = spansForDayIdx(p.id,d);
+      // a multi-day span is measured in working days, so it doesn't appear on a
+      // holiday column; a single-day all-day task on a holiday still shows
+      const spans = spansForDayIdx(p.id,d).filter(t => !holByDay[d] || t.date===spanEnd(t));
       const list = forDay(p.id,d);
       const spanHtml = spans.map(t => spanBarHtml(t,d)).join("");
       if(!spans.length && !list.length) return `<td class="day empty${holCls}" data-pid="${p.id}" data-day="${d}"></td>`;
@@ -2069,6 +2073,7 @@ function render(){
     if (nav.level === "customers") renderCustomers();
     else renderEnvironments();
     document.getElementById("range").textContent = "";
+    renderLegend();   // hides the legend off-board (it's a board reading aid)
     return;
   }
 
