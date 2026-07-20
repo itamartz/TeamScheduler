@@ -953,11 +953,36 @@ const fmtIso = s => { const [y,m,d] = s.split("-"); return `${+d}/${+m}/${y}`; }
 // it is a normal timed block. spanEnd falls back to the start date for a 1-day span.
 const isSpan  = t => !!t.all_day;
 const spanEnd = t => (t && t.end_date) || (t && t.date);
-const daysBetweenIso = (a,b) => Math.round((parseIso(b) - parseIso(a)) / 86400000);
-const spanDayCount   = t => daysBetweenIso(t.date, spanEnd(t)) + 1;                 // inclusive
 const spanCoversIso  = (t, d) => isSpan(t) && t.date <= d && spanEnd(t) >= d;
-// end date "yyyy-MM-dd" for a span starting startIso that lasts `days` inclusive days
-const endIsoFromDays = (startIso, days) => iso(addD(parseIso(startIso), Math.max(1, days|0) - 1));
+
+// Multi-day spans are measured in WORKING days: Sun–Thu that are NOT holidays.
+// Weekends and holidays are stepped over, so "10 days" from a Sunday (with no
+// holidays) ends on Thursday of the next week — two full work-weeks. The stored
+// span is still a calendar range date..end_date; only the count/derivation skip.
+const isWorkdayIso = d => { const g = parseIso(d).getDay(); return g !== 5 && g !== 6 && !holidayOn(d); };
+// the next working day strictly after isoDate (guarded against a runaway holiday range)
+function nextWorkdayIso(isoDate){
+  let x = addD(parseIso(isoDate), 1), guard = 0;
+  while (!isWorkdayIso(iso(x)) && guard++ < 800) x = addD(x, 1);
+  return iso(x);
+}
+// end "yyyy-MM-dd" for a span starting startIso that lasts `days` working days (inclusive)
+function endIsoFromDays(startIso, days){
+  let cur = startIso;
+  for (let k = 1; k < Math.max(1, days|0); k++) cur = nextWorkdayIso(cur);
+  return cur;
+}
+// inclusive count of working days in [aIso, bIso]
+function workdaysBetween(aIso, bIso){
+  let a = parseIso(aIso), b = parseIso(bIso);
+  if (b < a){ const t = a; a = b; b = t; }
+  let n = 0;
+  for (let d = new Date(a); iso(d) <= iso(b); d = addD(d, 1))
+    if (isWorkdayIso(iso(d))) n++;
+  return Math.max(1, n);
+}
+const spanDayCount = t => workdaysBetween(t.date, spanEnd(t));
+const daysHe = n => `${n} ${n === 1 ? "יום" : "ימים"}`;   // "1 יום" / "3 ימים"
 // human range label, e.g. "1/1 – 15/1" (single day collapses to one date)
 const spanRangeLabel = t => t.date === spanEnd(t) ? fmtIso(t.date) : `${fmtIso(t.date)} – ${fmtIso(spanEnd(t))}`;
 // the holiday whose inclusive range covers a "yyyy-MM-dd" date string, or null
@@ -1415,10 +1440,10 @@ function spanBarHtml(t, i){
   const cls = ["spanbar", isStart?"rstart":"", isEnd?"rend":"",
                contBefore?"contb":"", contAfter?"conta":""].filter(Boolean).join(" ");
   const label = !coveredPrev
-    ? `<span class="stitle">${dlFlag(t)}${t.title}</span><em class="spanrange">${spanRangeLabel(t)} · ${spanDayCount(t)} ימים</em>${envChip(t)}`
+    ? `<span class="stitle">${dlFlag(t)}${t.title}</span><em class="spanrange">${spanRangeLabel(t)} · ${daysHe(spanDayCount(t))}</em>${envChip(t)}`
     : "";
   return `<div class="${cls}" tabindex="0" data-id="${t.id}" style="${spanStyle(t)}"
-     title="${chainLabel(t)} · ${t.title} · ${spanRangeLabel(t)} (${spanDayCount(t)} ימים)">${label}</div>`;
+     title="${chainLabel(t)} · ${t.title} · ${spanRangeLabel(t)} (${daysHe(spanDayCount(t))})">${label}</div>`;
 }
 
 function renderWeek(){
@@ -1568,7 +1593,7 @@ function dailySpansBand(){
     for (const t of spansForDayIdx(p.id, currentDay)){
       const who = p.id === 0 ? "לא משובץ" : shortName(p.name);
       items.push(`<div class="spanbar rstart rend" data-id="${t.id}" tabindex="0" style="${spanStyle(t)}"
-        title="${chainLabel(t)} · ${t.title} · ${spanRangeLabel(t)} (${spanDayCount(t)} ימים)">
+        title="${chainLabel(t)} · ${t.title} · ${spanRangeLabel(t)} (${daysHe(spanDayCount(t))})">
         <span class="stitle">${who}: ${dlFlag(t)}${t.title}</span><em class="spanrange">${spanRangeLabel(t)}</em>${envChip(t)}</div>`);
     }
   }
@@ -2321,7 +2346,7 @@ function recomputeSpan(){
   if (document.getElementById("tSpanMode").value === "end"){
     end = document.getElementById("tEndDate").value || start;
     if (end < start) end = start;
-    days = daysBetweenIso(start, end) + 1;
+    days = workdaysBetween(start, end);
   } else {
     days = Math.max(1, +document.getElementById("tDays").value || 1);
     end  = endIsoFromDays(start, days);
@@ -2329,7 +2354,7 @@ function recomputeSpan(){
   document.getElementById("tDays").value    = days;
   document.getElementById("tEndDate").value = end;
   document.getElementById("tSpanSummary").textContent =
-    `מ־${fmtIso(start)} עד ${fmtIso(end)} · ${days} ${days === 1 ? "יום" : "ימים"}`;
+    `מ־${fmtIso(start)} עד ${fmtIso(end)} · ${days} ${days === 1 ? "יום עבודה" : "ימי עבודה"} (ללא שישי/שבת וחגים)`;
 }
 document.getElementById("tAllDay").addEventListener("change", updateAllDayUI);
 document.getElementById("tSpanMode").addEventListener("change", ()=>{ updateSpanModeUI(); recomputeSpan(); });
