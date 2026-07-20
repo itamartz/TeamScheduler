@@ -245,6 +245,30 @@
   .more{font-size:11px;color:#7c7466;padding-inline-start:9px}
   .empty{min-height:34px}
 
+  /* ---- all-day / multi-day span bars (Gantt-style, across day columns) ---- */
+  /* the app is RTL, so the earlier (start) date sits on the RIGHT; round that edge
+     on the start day and the LEFT edge on the end day, leaving week-crossing edges square */
+  .spanbar{
+    display:flex;align-items:center;gap:6px;overflow:hidden;cursor:pointer;
+    color:#fff;font-size:13px;line-height:1.2;padding:4px 8px;margin-bottom:3px;min-height:24px;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.06);
+  }
+  .spanbar.rstart{border-top-right-radius:10px;border-bottom-right-radius:10px}
+  .spanbar.rend{border-top-left-radius:10px;border-bottom-left-radius:10px}
+  .spanbar .stitle{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0}
+  .spanbar .spanrange{font-style:normal;font-size:11px;opacity:.92;flex:none;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .spanbar .envchip{flex:none;margin-inline-start:auto;color:#fff}
+  .spanbar .dlflag{filter:drop-shadow(0 0 1px rgba(0,0,0,.5))}
+
+  /* daily view: covering spans shown as a band above the hour grid */
+  .alldayband{
+    display:flex;flex-wrap:wrap;align-items:center;gap:7px;
+    margin:8px 24px 0;padding:8px 12px;
+    background:#f3efe7;border:1px solid var(--rule);border-radius:4px;
+  }
+  .alldayband .adlabel{font-size:14px;font-weight:600;color:#7c7466;flex:none;margin-inline-end:4px}
+  .alldayband .spanbar{margin-bottom:0;border-radius:11px;max-width:340px}
+
   /* ---- daily grid: absolute-positioned blocks over hour columns ---- */
   .daily{display:none;min-width:900px}
   .daily.on{display:block}
@@ -529,6 +553,17 @@
     padding:6px 14px;font:inherit;font-size:12px;cursor:pointer;border-radius:2px;
     margin-inline-start:auto;
   }
+  .mbtns .dup{
+    background:none;border:1px solid var(--rule-strong);
+    padding:6px 14px;font:inherit;font-size:12px;cursor:pointer;border-radius:2px;
+  }
+  .mbtns .dup:hover{border-color:var(--ink)}
+
+  /* task editor: all-day checkbox + multi-day span controls */
+  .alldaycell{display:flex;align-items:flex-end}
+  .alldaycell .chk{display:flex;align-items:center;gap:8px;font-size:15px;cursor:pointer;padding-bottom:7px;white-space:nowrap}
+  .alldaycell .chk input{width:19px;height:19px;flex:none}
+  .spansummary{margin-top:9px;font-size:15px;color:#5c5648;font-weight:600}
 
   /* ---- print gallery page: cards with live mini-previews ---- */
   #printout{display:none}                 /* off-screen holder; shown only when printing */
@@ -722,15 +757,26 @@
     <label for="tTitle">כותרת</label>
     <input id="tTitle" type="text" autocomplete="off">
     <div class="mrow">
-      <div><label for="tDate">תאריך</label><input id="tDate" type="date"></div>
+      <div><label for="tDate">תאריך התחלה</label><input id="tDate" type="date"></div>
+      <div class="alldaycell"><label class="chk" for="tAllDay"><input id="tAllDay" type="checkbox"> יום מלא / מספר ימים</label></div>
+    </div>
+    <div class="mrow" id="tTimeRow">
       <div><label for="tStart">התחלה</label><input id="tStart" type="time" step="900"></div>
       <div><label for="tDur">משך (דק׳)</label><input id="tDur" type="number" min="15" step="15" value="30"></div>
     </div>
+    <div class="mrow" id="tSpanRow" style="display:none">
+      <div><label for="tSpanMode">קביעת הטווח</label>
+        <select id="tSpanMode"><option value="days">לפי מספר ימים</option><option value="end">לפי תאריך סיום</option></select></div>
+      <div id="tDaysCell"><label for="tDays">מספר ימים</label><input id="tDays" type="number" min="1" step="1" value="1"></div>
+      <div id="tEndCell"><label for="tEndDate">עד תאריך (כולל)</label><input id="tEndDate" type="date"></div>
+    </div>
+    <div class="spansummary" id="tSpanSummary" style="display:none"></div>
     <div class="holwarn" id="tHolWarn" style="display:none"></div>
     <div class="weekendwarn" id="tWeekendWarn" style="display:none"></div>
     <div class="merr" id="tErr"></div>
     <div class="mbtns">
       <button class="save" id="tSave">שמירה</button>
+      <button class="dup" id="tDup">שכפול</button>
       <button class="cancel" id="tCancel">ביטול</button>
       <button class="danger" id="tDelete">מחיקה</button>
     </div>
@@ -901,6 +947,19 @@ const weekStart = d => addD(d, -d.getDay());
 
 // format a "yyyy-MM-dd" string as "d/M/yyyy" without going through Date (no UTC shift)
 const fmtIso = s => { const [y,m,d] = s.split("-"); return `${+d}/${+m}/${y}`; };
+
+// ---- all-day / multi-day span helpers ----
+// A task is a "span" (all-day bar across whole days) when all_day is set; otherwise
+// it is a normal timed block. spanEnd falls back to the start date for a 1-day span.
+const isSpan  = t => !!t.all_day;
+const spanEnd = t => (t && t.end_date) || (t && t.date);
+const daysBetweenIso = (a,b) => Math.round((parseIso(b) - parseIso(a)) / 86400000);
+const spanDayCount   = t => daysBetweenIso(t.date, spanEnd(t)) + 1;                 // inclusive
+const spanCoversIso  = (t, d) => isSpan(t) && t.date <= d && spanEnd(t) >= d;
+// end date "yyyy-MM-dd" for a span starting startIso that lasts `days` inclusive days
+const endIsoFromDays = (startIso, days) => iso(addD(parseIso(startIso), Math.max(1, days|0) - 1));
+// human range label, e.g. "1/1 – 15/1" (single day collapses to one date)
+const spanRangeLabel = t => t.date === spanEnd(t) ? fmtIso(t.date) : `${fmtIso(t.date)} – ${fmtIso(spanEnd(t))}`;
 // the holiday whose inclusive range covers a "yyyy-MM-dd" date string, or null
 function holidayOn(dateIso){
   for (const h of holidays){
@@ -938,7 +997,7 @@ const personName = id => id === 0 ? UNASSIGNED.name : (people.find(p=>p.id===id)
 // board rows/columns for a set of day indexes: real people, plus the unassigned
 // pool appended when any of those days has an unassigned task in scope
 function boardPeopleForDays(dayIdxs){
-  const hasU = dayIdxs.some(i => forDay(0, i).length);
+  const hasU = dayIdxs.some(i => forDay(0, i).length || spansForDayIdx(0, i).length);
   return hasU ? people.concat([UNASSIGNED]) : people;
 }
 
@@ -1057,7 +1116,7 @@ function projDeadlineHtml(pr){
   const e = pr && effDeadlineOf(pr.id);
   if (!e) return "";
   const overdue = isActive(pr) && e.date < iso(new Date());
-  const late = !overdue && taskCache.some(t => t.project_id === pr.id && t.date > e.date);
+  const late = !overdue && taskCache.some(t => t.project_id === pr.id && (isSpan(t) ? spanEnd(t) : t.date) > e.date);
   const cls = (overdue ? "pdl over" : late ? "pdl warn" : "pdl") + (e.own ? "" : " derived");
   const tail = overdue ? " · עבר היעד" : late ? " · יש משימות אחרי היעד" : "";
   if (e.own) return `<div class="${cls}">🎯 יעד: ${fmtIso(e.date)}${tail}</div>`;
@@ -1071,7 +1130,8 @@ function projDeadlineHtml(pr){
 // a single task scheduled AFTER its project's deadline (own or inherited)
 function taskPastDeadline(t){
   const dl = deadlineDateOf(projById[t.project_id]);
-  return !!(dl && t.date > dl);
+  const end = isSpan(t) ? spanEnd(t) : t.date;   // a span is late if it runs past the deadline
+  return !!(dl && end > dl);
 }
 // small ⏰ tag shown on such a task (on chips, blocks and the project page)
 function dlFlag(t){
@@ -1166,11 +1226,14 @@ function envTag(t){
 
 // ---------- live data: loaded from the PowerShell API ----------
 let taskCache = [];
-let taskIndex = new Map();   // "person_id|date" -> tasks
+let taskIndex = new Map();   // "person_id|date" -> TIMED tasks only
+let spanTasks = [];          // all-day multi-day tasks (rendered as bars, not in taskIndex)
 
 function rebuildTaskIndex(){
   taskIndex = new Map();
+  spanTasks = [];
   for (const t of taskCache){
+    if (isSpan(t)){ spanTasks.push(t); continue; }   // spans render as bars, never as timed chips
     const k = t.person_id + "|" + t.date;
     if (!taskIndex.has(k)) taskIndex.set(k, []);
     taskIndex.get(k).push(t);
@@ -1178,6 +1241,12 @@ function rebuildTaskIndex(){
 }
 function tasksFor(pid, date){
   return taskIndex.get(pid + "|" + iso(date)) || [];
+}
+// all-day spans that cover a given weekday index for a person, earliest-start first
+function spansForDayIdx(pid, i){
+  const d = iso(dayDate(i));
+  return spanTasks.filter(t => t.person_id === pid && spanCoversIso(t, d) && inScope(t))
+                  .sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : spanEnd(a) < spanEnd(b) ? -1 : 1);
 }
 
 async function api(path, method = "GET", body){
@@ -1241,6 +1310,11 @@ function weekStats(pid){
   let min = 0, count = 0;
   for (let i = 0; i < DAYS.length; i++){
     for (const t of tasksFor(pid, dayDate(i))){ min += t.duration_min; count++; }
+  }
+  // all-day spans contribute no hours, but each one touching the week counts once
+  const seen = new Set();
+  for (let i = 0; i < DAYS.length; i++){
+    for (const t of spansForDayIdx(pid, i)){ if (!seen.has(t.id)){ seen.add(t.id); count++; } }
   }
   return {min, count};
 }
@@ -1326,6 +1400,27 @@ function renderLegend(){
 
 // ---------- weekly: person rows × day columns ----------
 const MAX_CHIPS = 3;
+// solid/gradient fill for an all-day span bar (project colour, greyed when closed)
+const spanStyle = t => `background:${cssColor(projColor(t))};`;
+
+// one all-day span segment inside weekday column i. Rounds the true start/end edges,
+// leaves week-crossing edges square, and prints the title once on the first covered column.
+function spanBarHtml(t, i){
+  const thisIso = iso(dayDate(i));
+  const isStart = t.date === thisIso;
+  const isEnd   = spanEnd(t) === thisIso;
+  const coveredPrev = i > 0 && spanCoversIso(t, iso(dayDate(i-1)));   // covered by the column to the right (earlier date)
+  const contBefore  = i === 0 && t.date < thisIso;                    // continues into an earlier week
+  const contAfter   = i === DAYS.length-1 && spanEnd(t) > thisIso;    // continues into a later week
+  const cls = ["spanbar", isStart?"rstart":"", isEnd?"rend":"",
+               contBefore?"contb":"", contAfter?"conta":""].filter(Boolean).join(" ");
+  const label = !coveredPrev
+    ? `<span class="stitle">${dlFlag(t)}${t.title}</span><em class="spanrange">${spanRangeLabel(t)} · ${spanDayCount(t)} ימים</em>${envChip(t)}`
+    : "";
+  return `<div class="${cls}" tabindex="0" data-id="${t.id}" style="${spanStyle(t)}"
+     title="${chainLabel(t)} · ${t.title} · ${spanRangeLabel(t)} (${spanDayCount(t)} ימים)">${label}</div>`;
+}
+
 function renderWeek(){
   const todayIso = iso(new Date());
   const holByDay = DAYS.map((_,i)=>holidayOn(iso(dayDate(i))));   // holiday per column, or null
@@ -1349,8 +1444,10 @@ function renderWeek(){
     ${nameCell}
     ${DAYS.map((_,d)=>{
       const holCls = holByDay[d] ? " holiday" : "";
+      const spans = spansForDayIdx(p.id,d);
       const list = forDay(p.id,d);
-      if(!list.length) return `<td class="day empty${holCls}" data-pid="${p.id}" data-day="${d}"></td>`;
+      const spanHtml = spans.map(t => spanBarHtml(t,d)).join("");
+      if(!spans.length && !list.length) return `<td class="day empty${holCls}" data-pid="${p.id}" data-day="${d}"></td>`;
       const shown = list.slice(0,MAX_CHIPS).map(t=>
         `<div class="chip${taskHasConflict(t)?" conflict":""}" style="${accentStyle(t)}" tabindex="0" data-id="${t.id}"
            title="${chainLabel(t)} · ${t.title} · ${hhmm(t.start_min)}">
@@ -1358,7 +1455,7 @@ function renderWeek(){
       const rest = list.length - MAX_CHIPS;
       // when a cell already has chips there's little empty space to click, so give
       // an explicit add row at the bottom (clicks fall through to the td.day handler)
-      return `<td class="day${holCls}" data-pid="${p.id}" data-day="${d}">${shown}${rest>0?`<div class="more">+${rest} נוספות</div>`:""}<div class="addtask" title="הוספת משימה">+ משימה</div></td>`;
+      return `<td class="day${holCls}" data-pid="${p.id}" data-day="${d}">${spanHtml}${shown}${rest>0?`<div class="more">+${rest} נוספות</div>`:""}<div class="addtask" title="הוספת משימה">+ משימה</div></td>`;
     }).join("")}
   </tr>`;
   }).join("");
@@ -1463,6 +1560,21 @@ function renderDayVertical(){
     </div>`;
 }
 
+// all-day spans covering the shown day, as a clickable band above the hour grid
+// (kept out of the time grid so timed blocks stay aligned to the axis)
+function dailySpansBand(){
+  const items = [];
+  for (const p of boardPeopleForDays([currentDay])){
+    for (const t of spansForDayIdx(p.id, currentDay)){
+      const who = p.id === 0 ? "לא משובץ" : shortName(p.name);
+      items.push(`<div class="spanbar rstart rend" data-id="${t.id}" tabindex="0" style="${spanStyle(t)}"
+        title="${chainLabel(t)} · ${t.title} · ${spanRangeLabel(t)} (${spanDayCount(t)} ימים)">
+        <span class="stitle">${who}: ${dlFlag(t)}${t.title}</span><em class="spanrange">${spanRangeLabel(t)}</em>${envChip(t)}</div>`);
+    }
+  }
+  return items.length ? `<div class="alldayband"><span class="adlabel">🗓 יום מלא</span>${items.join("")}</div>` : "";
+}
+
 function renderDay(){
   const el = document.getElementById("daily");
   el.classList.toggle("vert", dayVertical);
@@ -1472,7 +1584,7 @@ function renderDay(){
     `<div class="orient" role="group" aria-label="כיוון">
        <button id="orH" aria-pressed="${!dayVertical}">אופקי</button>
        <button id="orV" aria-pressed="${dayVertical}">אנכי</button>
-     </div>` + banner +
+     </div>` + banner + dailySpansBand() +
     (dayVertical ? renderDayVertical() : renderDayHorizontal());
 
   document.getElementById("orH").onclick = ()=>{ dayVertical=false; renderDay(); };
@@ -2130,9 +2242,23 @@ function openTaskModal(task, defaults){
   if (pid != null) document.getElementById("tPerson").value = pid;   // 0 = unassigned
   document.getElementById("tDate").value =
     task ? task.date : (defaults && defaults.date) || iso(dayDate(currentDay));
+  const allDay = task ? isSpan(task) : !!(defaults && defaults.all_day);
   document.getElementById("tStart").value =
-    hhmm(task ? task.start_min : (defaults && defaults.start_min != null ? defaults.start_min : 9*60));
-  document.getElementById("tDur").value = task ? task.duration_min : 30;
+    hhmm(task && !allDay ? task.start_min : (defaults && defaults.start_min != null ? defaults.start_min : 9*60));
+  document.getElementById("tDur").value = task && !allDay ? task.duration_min : 30;
+  // all-day / multi-day span state
+  document.getElementById("tAllDay").checked = allDay;
+  document.getElementById("tSpanMode").value = "days";
+  if (allDay && task){
+    document.getElementById("tEndDate").value = spanEnd(task);
+    document.getElementById("tDays").value    = spanDayCount(task);
+  } else {
+    document.getElementById("tEndDate").value = "";
+    document.getElementById("tDays").value    = 1;
+  }
+  updateSpanModeUI();
+  updateAllDayUI();
+  document.getElementById("tDup").style.display = task ? "" : "none";     // duplicate only for an existing task
   document.getElementById("tDelete").style.display = task ? "" : "none";
   document.getElementById("tErr").textContent = "";
   updateTaskDateWarns();
@@ -2156,11 +2282,12 @@ function updateHolWarn(){
   }
 }
 // Fri(5)/Sat(6) fall outside the Sun–Thu board, so a task there is invisible on it — warn.
+// A multi-day span usually crosses weekdays, so we don't warn for it.
 function updateWeekendWarn(){
   const el  = document.getElementById("tWeekendWarn");
   const v   = document.getElementById("tDate").value;
   const dow = v ? parseIso(v).getDay() : -1;
-  if (dow === 5 || dow === 6){
+  if (!document.getElementById("tAllDay").checked && (dow === 5 || dow === 6)){
     el.textContent = `⚠️ ${DOW_HE[dow]} הוא יום סוף שבוע — המשימה לא תופיע בלוח (שבוע העבודה א׳–ה׳).`;
     el.style.display = "";
   } else {
@@ -2169,40 +2296,101 @@ function updateWeekendWarn(){
   }
 }
 function updateTaskDateWarns(){ updateHolWarn(); updateWeekendWarn(); }
-document.getElementById("tDate").addEventListener("input",  updateTaskDateWarns);
-document.getElementById("tDate").addEventListener("change", updateTaskDateWarns);
 
-async function saveTask(){
-  const startVal = document.getElementById("tStart").value || "09:00";
-  const [h,m] = startVal.split(":").map(Number);
+// ---- all-day / multi-day span controls ----
+// show the time inputs or the span inputs depending on the all-day checkbox
+function updateAllDayUI(){
+  const on = document.getElementById("tAllDay").checked;
+  document.getElementById("tTimeRow").style.display    = on ? "none" : "";
+  document.getElementById("tSpanRow").style.display    = on ? "" : "none";
+  document.getElementById("tSpanSummary").style.display = on ? "" : "none";
+  if (on) recomputeSpan();
+  updateTaskDateWarns();
+}
+// only one of "number of days" / "end date" is editable; the other is derived
+function updateSpanModeUI(){
+  const mode = document.getElementById("tSpanMode").value;
+  document.getElementById("tDaysCell").style.display = mode === "days" ? "" : "none";
+  document.getElementById("tEndCell").style.display  = mode === "end"  ? "" : "none";
+}
+// keep days <-> end date in sync from the start date, and refresh the summary line
+function recomputeSpan(){
+  const start = document.getElementById("tDate").value;
+  if (!start) return;
+  let end, days;
+  if (document.getElementById("tSpanMode").value === "end"){
+    end = document.getElementById("tEndDate").value || start;
+    if (end < start) end = start;
+    days = daysBetweenIso(start, end) + 1;
+  } else {
+    days = Math.max(1, +document.getElementById("tDays").value || 1);
+    end  = endIsoFromDays(start, days);
+  }
+  document.getElementById("tDays").value    = days;
+  document.getElementById("tEndDate").value = end;
+  document.getElementById("tSpanSummary").textContent =
+    `מ־${fmtIso(start)} עד ${fmtIso(end)} · ${days} ${days === 1 ? "יום" : "ימים"}`;
+}
+document.getElementById("tAllDay").addEventListener("change", updateAllDayUI);
+document.getElementById("tSpanMode").addEventListener("change", ()=>{ updateSpanModeUI(); recomputeSpan(); });
+document.getElementById("tDays").addEventListener("input", recomputeSpan);
+document.getElementById("tEndDate").addEventListener("input", recomputeSpan);
+document.getElementById("tDate").addEventListener("input",  ()=>{ if (document.getElementById("tAllDay").checked) recomputeSpan(); updateTaskDateWarns(); });
+document.getElementById("tDate").addEventListener("change", ()=>{ if (document.getElementById("tAllDay").checked) recomputeSpan(); updateTaskDateWarns(); });
+
+// Read the editor into an API payload (timed or all-day span). Returns null and
+// shows an error on invalid input. Shared by save and duplicate.
+function buildTaskPayload(){
+  const err = document.getElementById("tErr");
+  const allDay = document.getElementById("tAllDay").checked;
   const payload = {
     person_id:    +document.getElementById("tPerson").value,
     project_id:   +document.getElementById("tProject").value,
     title:        document.getElementById("tTitle").value.trim(),
     date:         document.getElementById("tDate").value,
-    start_min:    h*60 + (m||0),
-    duration_min: +document.getElementById("tDur").value || 30
+    all_day:      allDay,
+    start_min:    0, duration_min: 0, end_date: null
   };
-  const err = document.getElementById("tErr");
-  if (!payload.title){ err.textContent = "נדרשת כותרת"; return; }
+  if (!payload.title){ err.textContent = "נדרשת כותרת"; return null; }
   // person_id 0 is allowed = unassigned
-  if (!payload.project_id){ err.textContent = "נדרש פרויקט פעיל"; return; }
-  if (!payload.date){ err.textContent = "נדרש תאריך"; return; }
-  // weekend guard: Fri/Sat tasks don't appear on the Sun–Thu board — confirm before saving
-  const dow = parseIso(payload.date).getDay();
-  if ((dow === 5 || dow === 6) &&
-      !confirm(`התאריך שנבחר הוא ${DOW_HE[dow]} (סוף שבוע) והמשימה לא תופיע בלוח (א׳–ה׳). לשמור בכל זאת?`)){
-    return;
+  if (!payload.project_id){ err.textContent = "נדרש פרויקט פעיל"; return null; }
+  if (!payload.date){ err.textContent = "נדרש תאריך"; return null; }
+  if (allDay){
+    recomputeSpan();
+    const end = document.getElementById("tEndDate").value || payload.date;
+    if (end < payload.date){ err.textContent = "תאריך הסיום מוקדם מתאריך ההתחלה"; return null; }
+    payload.end_date = end;
+  } else {
+    const startVal = document.getElementById("tStart").value || "09:00";
+    const [h,m] = startVal.split(":").map(Number);
+    payload.start_min = h*60 + (m||0);
+    payload.duration_min = +document.getElementById("tDur").value || 30;
   }
-  // overlap guard: warn if this booking overlaps another task for the same person that day
-  if (payload.person_id !== 0){
-    const end = payload.start_min + payload.duration_min;
-    const clash = (taskIndex.get(payload.person_id + "|" + payload.date) || [])
-      .filter(o => o.id !== editingId)
-      .find(o => payload.start_min < o.start_min + o.duration_min && o.start_min < end);
-    if (clash &&
-        !confirm(`ל${personName(payload.person_id)} כבר יש משימה חופפת בזמן זה: "${clash.title}" (${hhmm(clash.start_min)}–${hhmm(clash.start_min+clash.duration_min)}). לשמור בכל זאת?`)){
+  return payload;
+}
+
+async function saveTask(){
+  const payload = buildTaskPayload();
+  if (!payload) return;
+  const err = document.getElementById("tErr");
+  // guards only apply to timed tasks (a span has no single day/time to clash on)
+  if (!payload.all_day){
+    // weekend guard: Fri/Sat tasks don't appear on the Sun–Thu board — confirm before saving
+    const dow = parseIso(payload.date).getDay();
+    if ((dow === 5 || dow === 6) &&
+        !confirm(`התאריך שנבחר הוא ${DOW_HE[dow]} (סוף שבוע) והמשימה לא תופיע בלוח (א׳–ה׳). לשמור בכל זאת?`)){
       return;
+    }
+    // overlap guard: warn if this booking overlaps another task for the same person that day
+    if (payload.person_id !== 0){
+      const end = payload.start_min + payload.duration_min;
+      const clash = (taskIndex.get(payload.person_id + "|" + payload.date) || [])
+        .filter(o => o.id !== editingId)
+        .find(o => payload.start_min < o.start_min + o.duration_min && o.start_min < end);
+      if (clash &&
+          !confirm(`ל${personName(payload.person_id)} כבר יש משימה חופפת בזמן זה: "${clash.title}" (${hhmm(clash.start_min)}–${hhmm(clash.start_min+clash.duration_min)}). לשמור בכל זאת?`)){
+        return;
+      }
     }
   }
   try{
@@ -2212,6 +2400,23 @@ async function saveTask(){
     closeTaskModal();
     await loadAll();               // render() hides the project page
     if (ret != null) openProjectPage(ret);
+  }catch(e){ err.textContent = e.message; }
+}
+
+// Duplicate: save the current editor state as a NEW task, then reopen the copy so
+// the user can tweak it (e.g. move it to another day). Works while editing a task.
+async function duplicateTask(){
+  const payload = buildTaskPayload();
+  if (!payload) return;
+  const err = document.getElementById("tErr");
+  try{
+    const created = await api("/api/tasks", "POST", payload);
+    const ret = returnToProject;
+    closeTaskModal();
+    await loadAll();
+    const copy = created && created.id != null ? taskCache.find(x => x.id === created.id) : null;
+    if (copy){ returnToProject = ret; openTaskModal(copy); }
+    else if (ret != null) openProjectPage(ret);
   }catch(e){ err.textContent = e.message; }
 }
 
@@ -2227,6 +2432,7 @@ async function deleteTask(){
 }
 
 document.getElementById("tSave").onclick   = saveTask;
+document.getElementById("tDup").onclick     = duplicateTask;
 document.getElementById("tCancel").onclick = closeTaskModal;
 document.getElementById("tDelete").onclick = deleteTask;
 dlg.addEventListener("click", e=>{ if (e.target === dlg) closeTaskModal(); });
@@ -2469,7 +2675,7 @@ document.getElementById("board").addEventListener("click", e=>{
     if (cell) openDayTasksModal(+cell.dataset.pid, +cell.dataset.day);
     return;
   }
-  const el = e.target.closest(".chip,.block,.vblock");
+  const el = e.target.closest(".chip,.block,.vblock,.spanbar");
   if (el && el.dataset.id){
     const t = taskCache.find(x => x.id === +el.dataset.id);
     if (t) openTaskModal(t);
@@ -2920,6 +3126,7 @@ function printRows(){
       iso: t.date, dow: d.dow, dm: d.dm, dayLabel: `${DOW_HE[d.dow]} ${d.dm}`,
       id:t.id, pid:t.person_id, person:personName(t.person_id),
       start:t.start_min, dur:t.duration_min, title:t.title, projId:t.project_id,
+      allDay: isSpan(t), endIso: isSpan(t) ? spanEnd(t) : null, days: isSpan(t) ? spanDayCount(t) : 0,
       proj: ch.project  ? ch.project.name  : "—",
       env:  ch.domain   ? ch.domain.name   : "—",
       cust: ch.customer ? ch.customer.name : "—",
@@ -2927,7 +3134,7 @@ function printRows(){
   }
   return rows;
 }
-const rSpan = r => `${hhmm(r.start)}–${hhmm(r.start+r.dur)}`;
+const rSpan = r => r.allDay ? `כל היום · ${r.days} ${r.days===1?"יום":"ימים"}` : `${hhmm(r.start)}–${hhmm(r.start+r.dur)}`;
 const rHrs  = m => (m/60).toFixed(1);
 const byIsoStart = (a,b)=> (a.iso<b.iso?-1:a.iso>b.iso?1:0) || a.start-b.start;
 function rHead(title, bits){
@@ -2972,7 +3179,7 @@ function reportGrid(){
     const cells = days.map(d=>{
       const list = rows.filter(r=>r.pid===pid && r.iso===d.iso).sort((a,b)=>a.start-b.start);
       return list.length
-        ? `<td>${list.map(r=>`<div class="gtask"><span class="gt">${hhmm(r.start)}</span> ${r.title}<span class="gp">${r.proj} · ${r.env}</span></div>`).join("")}</td>`
+        ? `<td>${list.map(r=>`<div class="gtask"><span class="gt">${r.allDay?"כל היום":hhmm(r.start)}</span> ${r.title}<span class="gp">${r.proj} · ${r.env}</span></div>`).join("")}</td>`
         : `<td></td>`;
     }).join("");
     const tot = rows.filter(r=>r.pid===pid).reduce((s,r)=>s+r.dur,0);
@@ -3226,11 +3433,14 @@ function buildProjectPage(){
   const rows = list.map(t=>{
     const wd  = DOW_HE[parseIso(t.date).getDay()];
     const isU = t.person_id === 0;
+    const dayCell  = isSpan(t) ? spanRangeLabel(t) : `${wd} · ${fmtIso(t.date)}`;
+    const timeCell = isSpan(t) ? "כל היום" : `${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}`;
+    const lenCell  = isSpan(t) ? `${spanDayCount(t)} ${spanDayCount(t)===1?"יום":"ימים"}` : `${(t.duration_min/60).toFixed(1)} ש׳`;
     return `<tr data-id="${t.id}">
-        <td class="num">${wd} · ${fmtIso(t.date)}</td>
+        <td class="num">${dayCell}</td>
         <td class="${isU?"pjunassigned":""}">${personName(t.person_id)}</td>
-        <td class="num">${hhmm(t.start_min)}–${hhmm(t.start_min+t.duration_min)}</td>
-        <td class="num">${(t.duration_min/60).toFixed(1)} ש׳</td>
+        <td class="num">${timeCell}</td>
+        <td class="num">${lenCell}</td>
         <td>${dlFlag(t)}${t.title}</td>
       </tr>`;
   }).join("");
