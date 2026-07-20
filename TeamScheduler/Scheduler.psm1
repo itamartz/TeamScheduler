@@ -797,16 +797,20 @@ function New-Task {
     .PARAMETER ProjectId    Owning project (resolves environment + customer + color).
     .PARAMETER Title        Task text.
     .PARAMETER Date         "yyyy-MM-dd" LOCAL date (never UTC - no day shifts).
-    .PARAMETER StartMin     Minutes from midnight (480 = 08:00).
-    .PARAMETER DurationMin  Length in minutes (e.g. 30 or 60).
+    .PARAMETER StartMin     Minutes from midnight (480 = 08:00). Ignored for an all-day task.
+    .PARAMETER DurationMin  Length in minutes (e.g. 30 or 60). Ignored for an all-day task.
+    .PARAMETER AllDay       When set, the task spans whole days (Date..EndDate) with no time-of-day.
+    .PARAMETER EndDate      Inclusive "yyyy-MM-dd" end of an all-day span (>= Date; defaults to Date).
     #>
     param(
         [int]$PersonId = 0,
         [Parameter(Mandatory)][int]$ProjectId,
         [Parameter(Mandatory)][string]$Title,
         [Parameter(Mandatory)][string]$Date,
-        [Parameter(Mandatory)][int]$StartMin,
-        [Parameter(Mandatory)][int]$DurationMin
+        [int]$StartMin = 480,
+        [int]$DurationMin = 30,
+        [switch]$AllDay,
+        [string]$EndDate
     )
     Test-DateString -Date $Date
     if ($PersonId -ne 0 -and -not (@(Get-Entities "people") | Where-Object { $_.id -eq $PersonId })) {
@@ -815,8 +819,16 @@ function New-Task {
     if (-not (@(Get-Entities "projects") | Where-Object { $_.id -eq $ProjectId })) {
         throw "Project $ProjectId not found"
     }
-    if ($StartMin -lt 0 -or $StartMin -gt 1439) { throw "start_min must be 0..1439" }
-    if ($DurationMin -le 0) { throw "duration_min must be positive" }
+    if ($AllDay) {
+        if ([string]::IsNullOrWhiteSpace($EndDate)) { $EndDate = $Date }
+        Test-DateString -Date $EndDate
+        if ($EndDate -lt $Date) { throw "end_date must be on or after date" }
+        $StartMin = 0; $DurationMin = 0     # not meaningful for an all-day span
+    } else {
+        if ($StartMin -lt 0 -or $StartMin -gt 1439) { throw "start_min must be 0..1439" }
+        if ($DurationMin -le 0) { throw "duration_min must be positive" }
+        $EndDate = $null
+    }
     $all = @(Get-Entities "tasks")
     $item = [PSCustomObject]@{
         id           = Get-NextId "task"
@@ -826,6 +838,8 @@ function New-Task {
         date         = $Date
         start_min    = $StartMin
         duration_min = $DurationMin
+        all_day      = [bool]$AllDay
+        end_date     = $EndDate
     }
     $all += $item
     Save-Entities "tasks" $all
@@ -852,7 +866,8 @@ function Set-Task {
     param(
         [Parameter(Mandatory)][int]$Id,
         [int]$PersonId, [int]$ProjectId, [string]$Title,
-        [string]$Date, [int]$StartMin, [int]$DurationMin
+        [string]$Date, [int]$StartMin, [int]$DurationMin,
+        [bool]$AllDay, [string]$EndDate
     )
     if ($PSBoundParameters.ContainsKey('Date')) { Test-DateString -Date $Date }
     if ($PSBoundParameters.ContainsKey('PersonId')) {
@@ -875,6 +890,20 @@ function Set-Task {
             if ($PSBoundParameters.ContainsKey('Date'))        { $t.date         = $Date }
             if ($PSBoundParameters.ContainsKey('StartMin'))    { $t.start_min    = $StartMin }
             if ($PSBoundParameters.ContainsKey('DurationMin')) { $t.duration_min = $DurationMin }
+            if ($PSBoundParameters.ContainsKey('AllDay'))      { $t | Add-Member -NotePropertyName all_day  -NotePropertyValue ([bool]$AllDay) -Force }
+            if ($PSBoundParameters.ContainsKey('EndDate'))     { $t | Add-Member -NotePropertyName end_date -NotePropertyValue $EndDate -Force }
+            # normalize: an all-day task carries a valid span and no time; a timed task carries neither
+            $isAll = ($t.PSObject.Properties.Name -contains 'all_day') -and [bool]$t.all_day
+            if ($isAll) {
+                if ([string]::IsNullOrWhiteSpace($t.end_date)) { $t | Add-Member -NotePropertyName end_date -NotePropertyValue $t.date -Force }
+                Test-DateString -Date $t.end_date
+                if ($t.end_date -lt $t.date) { throw "end_date must be on or after date" }
+                $t.start_min = 0; $t.duration_min = 0
+            } else {
+                if ($t.PSObject.Properties.Name -contains 'end_date') { $t.end_date = $null }
+                if ($t.start_min -lt 0 -or $t.start_min -gt 1439) { throw "start_min must be 0..1439" }
+                if ($t.duration_min -le 0) { throw "duration_min must be positive" }
+            }
             $found = $true
         }
     }
@@ -1130,6 +1159,7 @@ function Set-TaskFromBody {
     $splat = Select-BodyParams -Body $Body -Map @{
         person_id = 'PersonId'; project_id = 'ProjectId'; title = 'Title'
         date = 'Date'; start_min = 'StartMin'; duration_min = 'DurationMin'
+        all_day = 'AllDay'; end_date = 'EndDate'
     }
     return Set-Task -Id $Id @splat
 }
@@ -1264,7 +1294,13 @@ function Invoke-ApiRoute {
         "tasks" {
             switch ($Method) {
                 "GET"    { return ,@(Get-Tasks -From $q["from"] -To $q["to"] -PersonId (Get-QueryInt $q @("person_id","personId"))) }
-                "POST"   { return New-Task -PersonId $Body.person_id -ProjectId $Body.project_id -Title $Body.title -Date $Body.date -StartMin $Body.start_min -DurationMin $Body.duration_min }
+                "POST"   {
+                    $allDay = $false
+                    if ($Body.PSObject.Properties.Name -contains 'all_day') { $allDay = [bool]$Body.all_day }
+                    $endDate = $null
+                    if ($Body.PSObject.Properties.Name -contains 'end_date') { $endDate = [string]$Body.end_date }
+                    return New-Task -PersonId $Body.person_id -ProjectId $Body.project_id -Title $Body.title -Date $Body.date -StartMin $Body.start_min -DurationMin $Body.duration_min -AllDay:$allDay -EndDate $endDate
+                }
                 "PUT"    { return Set-TaskFromBody -Id $id -Body $Body }
                 "DELETE" { Remove-Task -Id $id; return @{ ok = $true } }
             }
