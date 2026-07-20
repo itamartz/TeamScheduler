@@ -1401,8 +1401,8 @@ function projectStats(projId, dates){
 //  swatch-to-name key helps read the board)
 function renderLegend(){
   const el = document.getElementById("legend");
-  // always shown on the board (every sub-view and drill level) as a colour key
-  const show = nav.level==="board";
+  // always shown (every view and drill level) as a colour key
+  const show = true;
   el.classList.toggle("on", show);
   if (!show){ el.innerHTML = ""; return; }
 
