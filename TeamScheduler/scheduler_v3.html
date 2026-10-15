@@ -426,6 +426,33 @@
   }
   .scope button:first-child{border-inline-start:0}
   .scope button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+  /* ---- gantt: CEO roadmap, one row per project (RTL: time flows right→left) ---- */
+  .gantt{display:none;padding:18px 24px 40px}
+  .gantt.on{display:block}
+  .gantt table.gt{table-layout:fixed;min-width:1100px}
+  .gantt .gt thead th{font-size:14px;padding:6px 4px}
+  .gantt .gt thead tr:nth-child(2) th{top:33px;font-weight:500;color:#4a4437}
+  .gantt .gt thead tr:first-child th.grp{border-bottom:1px solid var(--rule)}
+  .gantt .gt th.thick{border-inline-start:2px solid var(--rule-strong)}
+  .gantt .gt .lbl{unicode-bidi:plaintext}
+  .gantt .gt td.info{padding:8px 10px;font-size:14px;background:#fff;vertical-align:middle;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .gantt .gt td.info.pname{font-weight:650;cursor:pointer}
+  .gantt .gt td.info.pname:hover{text-decoration:underline}
+  .gantt .gt td.info .st{font-size:13px;color:#4a4437}
+  .gantt .gt td.info .st.closed{color:#7c7466}
+  .gantt .gt td.tl{position:relative;height:38px;padding:0;background:#fff}
+  .gantt .gl{position:absolute;top:0;bottom:0;border-inline-start:1px solid var(--rule);pointer-events:none}
+  .gantt .gl.thick{border-inline-start:2px solid var(--rule-strong)}
+  .gantt .gl.today{border-inline-start:2px dashed #b3543f;z-index:2}
+  .gantt .gbar{position:absolute;top:9px;height:20px;border-radius:3px;cursor:pointer;
+    min-width:6px;box-shadow:inset 0 0 0 1px rgba(0,0,0,.15)}
+  .gantt .gbar:hover{box-shadow:inset 0 0 0 2px var(--ink)}
+  .gantt .gbar .prog{inset-inline:3px;bottom:2px;background:rgba(255,255,255,.7)}
+  .gantt .gdl{position:absolute;top:3px;bottom:3px;border-inline-start:2px solid var(--ink);z-index:2}
+  .gantt .gdl.over{border-color:#b3543f}
+  .gantt .gnote{font-size:13px;color:#7c7466;margin-top:10px}
+
   .showclosed{display:flex;align-items:center;gap:6px;font-size:12px;color:#7c7466;cursor:pointer}
 
   .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:18px}
@@ -751,6 +778,7 @@
   <button id="tplBtn" title="ניהול תבניות משימות">📋 תבניות</button>
 
   <div class="modes" role="group" aria-label="תצוגה">
+    <button id="btnGantt" aria-pressed="false">גאנט</button>
     <button id="btnProj" aria-pressed="false">פרויקטים</button>
     <button id="btnPeople" aria-pressed="false">לפי אדם</button>
     <button id="btnWeek" aria-pressed="true">שבועי</button>
@@ -768,6 +796,7 @@
   <div class="daily" id="daily"></div>
   <div class="projects" id="projects"></div>
   <div class="people" id="peopleview"></div>
+  <div class="gantt" id="gantt"></div>
 </div>
 
 <div class="printpage" id="printPage"></div>
@@ -1922,8 +1951,9 @@ function renderProjects(){
 const bw = document.getElementById("btnWeek"),
       bd = document.getElementById("btnDay"),
       bpp = document.getElementById("btnPeople"),
-      bp = document.getElementById("btnProj");
-let mode = "week";   // "week" | "day" | "projects"  (the board sub-views)
+      bp = document.getElementById("btnProj"),
+      bg = document.getElementById("btnGantt");
+let mode = "week";   // "week" | "day" | "projects" | "people" | "gantt"  (the board sub-views)
 
 // ---------- customers dashboard ----------
 function renderCustomers(){
@@ -2060,6 +2090,7 @@ function customerStats(customerId, dates){
 
 function label(){
   if (nav.level !== "board") return "";
+  if (mode === "gantt") return ganttZoom === "month" ? `${ganttYear}` : `${ganttYear}–${ganttYear+1}`;
   if (mode === "week") return `${fmtDM(dayDate(0))} – ${fmtDM(dayDate(DAYS.length-1))}`;
   if (mode === "day")  return `${DAYS[currentDay]}, ${fmtLong(dayDate(currentDay))}`;
   if (mode === "people")
@@ -2127,10 +2158,12 @@ function render(){
   bd.setAttribute("aria-pressed", mode==="day");
   bp.setAttribute("aria-pressed", mode==="projects");
   bpp.setAttribute("aria-pressed", mode==="people");
+  bg.setAttribute("aria-pressed", mode==="gantt");
 
   if (mode==="week") renderWeek();
   else if (mode==="day") renderDay();
   else if (mode==="people") renderPeople();
+  else if (mode==="gantt") renderGantt();
   else renderProjects();
   renderLegend();
 
@@ -2138,6 +2171,7 @@ function render(){
   document.getElementById("daily").classList.toggle("on", mode==="day");
   document.getElementById("projects").classList.toggle("on", mode==="projects");
   document.getElementById("peopleview").classList.toggle("on", mode==="people");
+  document.getElementById("gantt").classList.toggle("on", mode==="gantt");
 
   const frozen = mode==="projects" && projAllTime;
   for (const id of ["prev","next","today"]) document.getElementById(id).disabled = frozen;
@@ -2150,6 +2184,7 @@ function step(dir){
   if (nav.level !== "board") return;
   // the all-time project scope is a fixed window; nothing to navigate
   if (mode === "projects" && projAllTime) return;
+  if (mode === "gantt"){ ganttYear += dir; render(); return; }
 
   if (mode === "day" || (mode === "people" && peopleSpan === "day")){
     currentDay += dir;
@@ -2169,6 +2204,7 @@ document.getElementById("today").onclick = ()=>{
   const t = resolveWorkday(new Date());
   anchor = t.anchor;
   currentDay = t.dayIndex;
+  ganttYear = new Date().getFullYear();
   render();
 };
 
@@ -2176,6 +2212,115 @@ bw.onclick = ()=>{ mode="week";     render(); };
 bd.onclick = ()=>{ mode="day";      render(); };
 bp.onclick = ()=>{ mode="projects"; render(); };
 bpp.onclick = ()=>{ mode="people"; render(); };
+bg.onclick  = ()=>{ mode="gantt";  render(); };
+
+// ---------- gantt (CEO roadmap): projects as bars over months or quarters ----------
+let ganttZoom = "month";                     // "month" (Jan–Dec of ganttYear) | "quarter" (8 quarters)
+let ganttYear = new Date().getFullYear();
+const MONTHS_HE = ["ינו׳","פבר׳","מרץ","אפר׳","מאי","יוני","יולי","אוג׳","ספט׳","אוק׳","נוב׳","דצמ׳"];
+
+// timeline columns [{start, end(exclusive), label}] + merged top-row groups [{label, span}]
+function ganttPeriods(){
+  const per = [], groups = [];
+  if (ganttZoom === "month"){
+    for (let m = 0; m < 12; m++)
+      per.push({ start:new Date(ganttYear,m,1), end:new Date(ganttYear,m+1,1), label:MONTHS_HE[m] });
+    for (let q = 1; q <= 4; q++) groups.push({ label:`${ganttYear}-Q${q}`, span:3 });
+  } else {
+    for (const y of [ganttYear, ganttYear+1]){
+      for (let q = 0; q < 4; q++)
+        per.push({ start:new Date(y,q*3,1), end:new Date(y,q*3+3,1), label:`Q${q+1}` });
+      groups.push({ label:`${y}`, span:4 });
+    }
+  }
+  return { per, groups };
+}
+// a date's position across the timeline, 0..1 (each column equal width, linear inside it)
+function ganttPos(per, d){
+  if (d < per[0].start) return 0;
+  for (let i = 0; i < per.length; i++){
+    const p = per[i];
+    if (d < p.end) return (i + (d - p.start) / (p.end - p.start)) / per.length;
+  }
+  return 1;
+}
+
+function renderGantt(){
+  const { per, groups } = ganttPeriods();
+  const N = per.length, step = ganttZoom === "month" ? 3 : 4;   // thick line every quarter / year
+  const today = iso(new Date());
+  // each project's span: earliest task date .. latest task end (a span task ends at spanEnd)
+  const range = new Map();
+  for (const t of taskCache){
+    const end = isSpan(t) ? spanEnd(t) : t.date;
+    const r = range.get(t.project_id);
+    if (!r) range.set(t.project_id, { from:t.date, to:end, pct:[taskProgress(t)] });
+    else { if (t.date < r.from) r.from = t.date; if (end > r.to) r.to = end; r.pct.push(taskProgress(t)); }
+  }
+  const lo = iso(per[0].start), hi = iso(per[N-1].end);   // [lo, hi) as sortable strings
+  let noTasks = 0, outside = 0;
+  const rows = [];
+  for (const pr of scopedProjects()){
+    const r = range.get(pr.id);
+    if (!r){ noTasks++; continue; }
+    if (r.to < lo || r.from >= hi){ outside++; continue; }
+    const { domain, customer } = chainOf(pr.id);
+    rows.push({ pr, r, dn: domain ? domain.name : "", cn: customer ? customer.name : "" });
+  }
+  rows.sort((a,b)=> a.cn.localeCompare(b.cn,"he") || a.dn.localeCompare(b.dn,"he") || a.r.from.localeCompare(b.r.from));
+
+  const at = s => ganttPos(per, parseIso(s)) * 100;
+  const lines = per.map((p,i)=> i ? `<div class="gl${i%step?"":" thick"}" style="inset-inline-start:${i/N*100}%"></div>` : "").join("")
+    + (today >= lo && today < hi ? `<div class="gl today" title="היום" style="inset-inline-start:${at(today)}%"></div>` : "");
+  const body = rows.map(({pr, r, dn, cn})=>{
+    const active = isActive(pr);
+    const e = effDeadlineOf(pr.id);
+    const overdue = active && e && e.date < today;
+    const late = !overdue && e && r.to > e.date;
+    const st = (active ? "פעיל" : "סגור") + (overdue ? " · ⛔ עבר היעד" : late ? " · ⚠ משימות אחרי היעד" : "");
+    const a = at(r.from), b = ganttPos(per, addD(parseIso(r.to),1)) * 100;   // end date is inclusive
+    const avg = Math.round(r.pct.reduce((x,y)=>x+y,0) / r.pct.length);
+    const bg = active ? cssColor(pr.color) : "#a8a091";
+    const tip = `${pr.name} · ${fmtIso(r.from)} – ${fmtIso(r.to)}${avg ? ` · ${avg}% הושלם` : ""}`;
+    const dl = e && e.date >= lo && e.date < hi
+      ? `<div class="gdl${overdue?" over":""}" title="🎯 יעד${e.own?"":" נגזר"}: ${fmtIso(e.date)}" style="inset-inline-start:${at(e.date)}%"></div>` : "";
+    return `<tr>
+      <td class="info" title="${cn}">${cn}</td>
+      <td class="info" title="${dn}">${dn}</td>
+      <td class="info"><span class="st${active?"":" closed"}">${st}</span></td>
+      <td class="info pname" data-openproj="${pr.id}" title="${pr.name}">${pr.name}</td>
+      <td class="tl" colspan="${N}">${lines}
+        <div class="gbar" data-openproj="${pr.id}" title="${tip}"
+             style="inset-inline-start:${a}%;width:${b-a}%;background:${bg}">${progHtml({percent_done:avg})}</div>${dl}</td>
+    </tr>`;
+  }).join("");
+
+  const notes = [noTasks && `${noTasks} פרויקטים ללא משימות לא מוצגים`,
+                 outside && `${outside} פרויקטים מחוץ לטווח`].filter(Boolean).join(" · ");
+  document.getElementById("gantt").innerHTML =
+    `<div class="ptoolbar">
+       <div class="scope" role="group" aria-label="רזולוציה">
+         <button id="gzMonth" aria-pressed="${ganttZoom==="month"}">חודשי</button>
+         <button id="gzQuarter" aria-pressed="${ganttZoom==="quarter"}">רבעוני</button>
+       </div>
+     </div>
+     <table class="gt">
+       <colgroup><col style="width:120px"><col style="width:110px"><col style="width:160px"><col style="width:180px">${per.map(()=>"<col>").join("")}</colgroup>
+       <thead>
+         <tr><th rowspan="2">לקוח</th><th rowspan="2">סביבה</th><th rowspan="2">סטטוס</th><th rowspan="2">פרויקט</th>
+           ${groups.map((g,i)=>`<th class="grp${i?" thick":""}" colspan="${g.span}"><span class="lbl">${g.label}</span></th>`).join("")}</tr>
+         <tr>${per.map((p,i)=>`<th class="${i&&!(i%step)?"thick":""}"><span class="lbl">${p.label}</span></th>`).join("")}</tr>
+       </thead>
+       <tbody>${body || `<tr><td class="info" colspan="${N+4}">אין פרויקטים עם משימות בטווח זה</td></tr>`}</tbody>
+     </table>
+     ${notes ? `<div class="gnote">${notes}</div>` : ""}`;
+
+  document.getElementById("gzMonth").onclick   = ()=>{ ganttZoom="month";   render(); };
+  document.getElementById("gzQuarter").onclick = ()=>{ ganttZoom="quarter"; render(); };
+  document.querySelectorAll("#gantt [data-openproj]").forEach(el=>{
+    el.onclick = ()=> openProjectPage(+el.dataset.openproj);
+  });
+}
 
 // the horizontal scroller of the current board view (day-vertical has its own)
 function boardScroller(){
