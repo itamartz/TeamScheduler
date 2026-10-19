@@ -308,8 +308,8 @@ const statusOf=t=>taskLate(t)?["תקוע","var(--stuck)"]:pctOf(t)>=100?["בוצ
 })();
 
 // ---------- state ----------
-const st={level:"hub",custId:null,domId:null,mode:"week",anchor:weekStart(new Date()),gz:"month",gy:new Date().getFullYear(),gm:new Date().getMonth(),gEndY:2028,gf:{cust:"",dom:"",branch:"",cat:"",status:"",name:"",cbranch:""},showClosed:false,admin:"hol",search:"",branch:0,cat:"",sideOpen:true,sideView:"env",open:new Set(),hubMore:new Set(),ids:true};
-try{if(localStorage.getItem("tsIds")==="0")st.ids=false}catch(e){}
+const st={level:"hub",custId:null,domId:null,mode:"week",anchor:weekStart(new Date()),gz:"month",gy:new Date().getFullYear(),gm:new Date().getMonth(),gEndY:2028,gf:{cust:"",dom:"",branch:"",cat:"",status:"",name:"",cbranch:""},showClosed:false,admin:"hol",search:"",branch:0,cat:"",sideOpen:true,sideView:"env",open:new Set(),hubMore:new Set(),ids:false};
+try{st.ids=localStorage.getItem("tsIds")==="1"}catch(e){}
 function scopedProjects(){return projects.filter(p=>(st.domId!=null?p.domain_id===st.domId:st.custId!=null?domById(p.domain_id).customer_id===st.custId:true)&&(!st.branch||p.branch===st.branch)&&(!st.cat||p.category===st.cat))}
 const filterBar=()=>`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px"><span style="color:var(--muted)">סינון:</span>
   <select id="fBranch" class="in" style="width:170px;height:34px" aria-label="צוות"><option value="0">כל הצוותים</option>${BRANCHES.map(b=>`<option value="${b.id}" ${st.branch===b.id?"selected":""}>צוות: ${b.name}</option>`).join("")}</select>
@@ -328,7 +328,7 @@ function render(){
   app.innerHTML=`<nav class="side ${st.sideOpen?"":"closed"}" aria-label="ניווט">${sidebar()}</nav><main class="main">${st.level==="admin"?adminView():st.level==="hub"?hubView():boardView()}</main>`;
   bind();
   if(st.ids)markIds(app);
-  idsBtn.setAttribute("aria-pressed",st.ids);idsBtn.classList.toggle("p",st.ids);
+  idsBtn.setAttribute("aria-pressed",st.ids);idsBtn.classList.toggle("p",st.ids);idsBtn.textContent=st.ids?"הסתר מזהים":"הצג מזהים";
 }
 // IDs overlay so feedback can point at "T412" / "UI:tabs"; entity ids come from the data, so they stay the same across reloads
 const ID_KINDS=[["task","T"],["proj","P"],["pn","P"],["dom","E"],["cust","C"],["branch","TM"],["pid","U"]];
