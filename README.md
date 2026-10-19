@@ -80,3 +80,4 @@ Add **`-Debug`** to prefix every name/title in the UI with its `#id` (handy for 
 
 - **Run instructions, the full API table, and using the module directly:** [`TeamScheduler/README.md`](TeamScheduler/README.md)
 - **Architecture, conventions, and the load-bearing PowerShell 5.1 gotchas:** [`CLAUDE.md`](CLAUDE.md)
+- **Design mockup — Monday-style web UI (not served, sample data only):** [`mockups/teamscheduler-web-monday.html`](mockups/teamscheduler-web-monday.html) — open it directly in a browser.

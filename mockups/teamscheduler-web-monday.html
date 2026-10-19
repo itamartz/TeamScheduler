@@ -1,0 +1,635 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>TeamScheduler Web</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+/* layout: Monday-style shell — right sidebar (RTL), top tabs, content card. Light first, dark mirrored. */
+:root{
+  --bg:#F6F7FB; --card:#FFFFFF; --fg:#323338; --muted:#676879; --line:#E6E9EF; --line2:#C3C6D4;
+  --accent:#0073EA; --accent-soft:#CCE5FF; --today:#F3F8FF; --hol:#FBE9E4; --hol-fg:#B03A2E;
+  --done:#00C875; --work:#FDAB3D; --stuck:#E2445C; --plan:#579BFC; --grey:#A0A3B1;
+  --font:Heebo,"Segoe UI",system-ui,sans-serif;
+}
+/* single light look on purpose — the app has no dark mode */
+:root{color-scheme:light}
+html,body{height:100%}
+body{background:var(--bg);color:var(--fg);font:14px/1.45 var(--font);direction:rtl}
+*{box-sizing:border-box}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+.app{min-height:100%;display:flex;flex-wrap:wrap}
+.side{width:240px;background:var(--card);border-left:1px solid var(--line);padding:16px 12px;display:flex;flex-direction:column;gap:2px}
+.side.closed{width:56px;padding:16px 8px}
+.side .logo{display:flex;align-items:center;gap:10px;padding:4px 8px 14px;font-weight:700;font-size:16px}
+.side.closed .logo{padding:4px 0 14px;justify-content:center}
+.tgl{background:none;border:1px solid var(--line2);border-radius:4px;width:34px;height:34px;color:var(--fg);flex:none}
+.side .logo .tgl{margin-inline-start:auto}
+.gbarnav{display:flex;align-items:center;gap:8px;padding:6px 8px;background:var(--bg);border-bottom:1px solid var(--line)}
+.gbarnav:last-child{border-bottom:0;border-top:1px solid var(--line)}
+.gtop{flex:1;overflow-x:auto;overflow-y:hidden;height:14px}
+.ggrid .fz{position:sticky;background:var(--card);z-index:1}
+.ggrid .h.fz{background:var(--bg);z-index:3}
+.ggrid .gfi{width:100%;min-width:0}
+.side .logo i{width:32px;height:32px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-style:normal}
+.side .sec{font-size:12px;color:var(--muted);padding:14px 10px 4px;font-weight:600}
+.nav{background:none;border:0;text-align:right;padding:8px 10px;border-radius:4px;display:flex;align-items:center;gap:8px;width:100%;color:var(--fg)}
+.nav:hover{background:var(--bg)}
+.nav.on{background:var(--accent-soft);font-weight:600}
+.nav.sub{padding-inline-start:30px}
+.sw{width:10px;height:10px;border-radius:3px;flex:none;display:inline-block}
+.sw.r{border-radius:50%}
+.side .foot{margin-top:auto;border-top:1px solid var(--line);padding-top:10px;font-size:13px;color:var(--muted)}
+.main{flex:999 1 560px;min-width:0;padding-block:20px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px}
+.crumb{font-size:13px;color:var(--muted)}
+.crumb b{color:var(--fg)}
+.crumb button{background:none;border:0;padding:0;color:var(--accent)}
+.head{display:flex;flex-wrap:wrap;align-items:center;gap:10px}
+.head h1{margin:0;font-size:24px}
+.head .acts{margin-inline-start:auto;display:flex;gap:6px;flex-wrap:wrap}
+.btn{background:var(--card);border:1px solid var(--line2);border-radius:4px;padding:8px 14px}
+.btn.p{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:600}
+.btn.s{padding:4px 10px;font-size:12px}
+.btn.danger{color:var(--stuck);border-color:var(--stuck)}
+.tabs{display:flex;flex-wrap:wrap;align-items:center;gap:2px;border-bottom:1px solid var(--line)}
+.tabs button{background:none;border:0;border-bottom:2px solid transparent;padding:8px 14px;color:var(--muted)}
+.tabs button.on{color:var(--accent);border-color:var(--accent);font-weight:600}
+.tabs .range{margin-inline-start:auto;display:flex;align-items:center;gap:8px;padding:4px 0;font-weight:600;font-variant-numeric:tabular-nums}
+.tabs .range button{border:1px solid var(--line2);border-radius:4px;background:var(--card);height:34px;padding:0 12px;color:var(--fg)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px}
+.scroll{overflow-x:auto}
+.grid{display:grid;min-width:960px;font-size:13px}
+.grid>div{border-bottom:1px solid var(--line);border-left:1px solid var(--line);padding:6px}
+.grid .h{background:var(--bg);font-weight:600;border-bottom:2px solid var(--fg);text-align:center}
+.grid .h b{display:block;font-size:18px}
+.grid .h small{color:var(--muted)}
+.grid .h.today{background:var(--accent-soft)}
+.grid .h.hol,.grid .cell.hol{background:var(--hol)}
+.grid .h.hol small{color:var(--hol-fg);font-weight:600}
+.grid .who{background:var(--bg);padding:10px 12px;font-weight:600}
+.grid .who small{display:block;font-weight:400;color:var(--muted);font-size:12px}
+.grid .cell{display:flex;flex-direction:column;gap:6px;min-height:52px;cursor:pointer}
+.grid .cell.today{background:var(--today)}
+.grid .cell:hover{outline:2px solid var(--accent-soft);outline-offset:-2px}
+.chip{background:var(--card);border:1px solid var(--line);border-right:4px solid var(--c);border-radius:4px;padding:6px 8px;font-size:12px;display:flex;flex-direction:column;gap:4px;box-shadow:0 1px 2px rgba(0,0,0,.06);cursor:pointer;text-align:right;width:100%}
+.chip.un{border-style:dashed;border-right-style:solid}
+.chip .row{display:flex;justify-content:space-between;align-items:center;gap:6px}
+.chip .row b{font-variant-numeric:tabular-nums}
+.tag{font-size:10px;color:#fff;padding:1px 7px;border-radius:10px;white-space:nowrap}
+.prog{height:4px;background:var(--line);border-radius:2px;overflow:hidden}
+.prog i{display:block;height:100%;background:var(--done)}
+.pill{background:#EAF2EA;color:#1F5A2E;border:1px solid #B7D4B7;border-radius:14px;padding:5px 10px;font-size:12px;display:flex;justify-content:space-between;cursor:pointer;width:100%}
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:12px;color:var(--muted);align-items:center}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:14px;height:14px;border-radius:3px;display:inline-block}
+/* table */
+.group{display:flex;flex-direction:column;gap:4px}
+.ghead{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:6px 0}
+.ghead h2{margin:0;font-size:17px;color:var(--c)}
+.ghead .acts{margin-inline-start:auto;display:flex;gap:6px;flex-wrap:wrap}
+.badge{font-size:12px;padding:2px 8px;border-radius:10px;background:var(--line)}
+.badge.red{background:var(--stuck);color:#fff}
+.badge.org{background:var(--work);color:#fff}
+.badge.hol{background:var(--hol);color:var(--hol-fg)}
+.tgrid{display:grid;grid-template-columns:6px 32px minmax(220px,1.4fr) 140px 120px 120px 120px 150px;min-width:980px;font-size:13px}
+.tgrid>div{border-bottom:1px solid var(--line);border-right:1px solid var(--line);padding:8px 10px;display:flex;align-items:center;gap:6px}
+.tgrid .stripe{grid-row:span var(--n);background:var(--c);border:0;padding:0;border-radius:6px 0 0 6px}
+.tgrid .th{color:var(--muted);font-weight:600;justify-content:center}
+.tgrid .c{justify-content:center;text-align:center}
+.tgrid .st{color:#fff;font-weight:500;justify-content:center;cursor:pointer;border-bottom-color:var(--card)}
+.tgrid .ft{background:var(--bg);color:var(--muted);font-size:12px}
+.tgrid .name{cursor:pointer;font-weight:500;flex-direction:column;align-items:flex-start;gap:0}
+.tgrid .name small{color:var(--muted);font-weight:400}
+.bar{flex:1;height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--done)}
+.battery{display:flex;width:100%;height:16px;border-radius:3px;overflow:hidden}
+/* gantt */
+.ggrid{display:grid;grid-template-columns:100px 80px 90px 80px 140px 180px repeat(var(--n),minmax(90px,1fr));min-width:1180px;font-size:13px}
+.ggrid>div{border-bottom:1px solid var(--line);border-left:1px solid var(--line);padding:8px 10px;display:flex;align-items:center}
+.ggrid .h{background:var(--bg);font-weight:600;border-bottom:2px solid var(--fg)}
+.ggrid .q{justify-content:center;font-weight:700;border-bottom:1px solid var(--line);unicode-bidi:plaintext}
+.ggrid .m{justify-content:center;color:var(--muted);border-bottom:2px solid var(--fg)}
+.ggrid .m.today{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.ggrid .thick{border-left:2px solid var(--grey)}
+.ggrid .tl{grid-column:span var(--n);position:relative;height:44px;padding:0;display:block}
+.gl{position:absolute;top:0;bottom:0;border-right:1px solid var(--line)}
+.gl.thick{border-right:2px solid var(--grey)}
+.gl.today{border-right:2px dashed var(--stuck);z-index:2}
+.gbar{position:absolute;top:11px;height:22px;border-radius:4px;color:#fff;font-size:11px;display:flex;align-items:center;padding:0 8px;overflow:hidden;white-space:nowrap;cursor:pointer;min-width:6px;border:0}
+.gdl{position:absolute;top:5px;bottom:5px;border-right:3px solid var(--fg);z-index:2}
+.gdl.over{border-color:var(--stuck)}
+.status{color:#fff;padding:4px 10px;border-radius:3px;font-weight:500;width:100%;text-align:center;font-size:12px}
+.seg{display:inline-flex;border:1px solid var(--line2);border-radius:4px;overflow:hidden}
+.seg button{background:var(--card);border:0;border-right:1px solid var(--line2);padding:7px 14px;color:var(--fg)}
+.seg button:first-child{border-right:0}
+.seg button.on{background:var(--accent);color:#fff}
+/* hub */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+.ccard{background:var(--card);border:1px solid var(--line);border-top:5px solid var(--c);border-radius:8px;padding:16px;display:flex;flex-direction:column;gap:12px}
+.ccard h2{margin:0;font-size:18px}
+.ccard .stats{display:flex;gap:18px;font-size:13px;color:var(--muted)}
+.ccard .stats b{color:var(--fg);font-size:18px}
+.env{background:none;border:1px solid var(--line);border-radius:4px;padding:8px 10px;display:flex;align-items:center;gap:8px;width:100%;text-align:right;color:var(--fg)}
+.env:hover{border-color:var(--accent)}
+.env small{margin-inline-start:auto;color:var(--muted)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:18px}
+.panel{padding:16px;display:flex;flex-direction:column;gap:10px}
+.panel h2{margin:0;font-size:15px}
+.att{display:flex;align-items:center;gap:10px;padding:8px 10px;background:var(--bg);border-radius:4px;font-size:13px}
+.matrix{display:grid;gap:4px;font-size:12px;text-align:center}
+.matrix div{height:26px;border-radius:3px;display:flex;align-items:center;justify-content:center}
+/* admin */
+.list{display:grid;font-size:13px;border:1px solid var(--line);border-radius:4px;overflow:hidden}
+.list>div{padding:8px 10px;border-top:1px solid var(--line);display:flex;align-items:center;gap:6px}
+.list .th{background:var(--bg);color:var(--muted);font-weight:600;border-top:0}
+.form{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;align-items:end}
+.form label{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600}
+.in{height:38px;border:1px solid var(--line2);border-radius:4px;padding:0 10px;background:var(--card);color:var(--fg);width:100%}
+textarea.in{height:auto;padding:8px 10px;resize:vertical}
+/* drawer */
+.dim{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:10}
+.drawer{position:fixed;top:0;bottom:0;right:0;width:min(520px,100%);background:var(--card);box-shadow:-8px 0 24px rgba(0,0,0,.18);z-index:11;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+.drawer .dh{display:flex;align-items:center;gap:10px;padding:18px 22px;border-bottom:1px solid var(--line)}
+.drawer .dh h2{margin:0;font-size:20px}
+.drawer .body{padding:18px 22px;display:flex;flex-direction:column;gap:14px;overflow-y:auto;flex:1}
+.drawer .df{display:flex;gap:8px;padding:14px 22px;border-top:1px solid var(--line);background:var(--bg)}
+.note{border-radius:6px;padding:10px 12px;font-size:13px}
+.note.hol{background:var(--hol);color:var(--hol-fg)}
+.note.warn{background:#FFF6E0;color:#7A5A00}
+.avatar{width:24px;height:24px;border-radius:50%;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex:none}
+.toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 18px;border-radius:8px;font-size:13px;z-index:20;box-shadow:0 6px 20px rgba(0,0,0,.2)}
+.demo{font-size:12px;color:var(--muted);padding:6px 10px;border:1px dashed var(--line2);border-radius:4px}
+:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+@media (max-width:700px){.side{width:100%;border-left:0;border-bottom:1px solid var(--line)}.side.closed{width:100%;flex-direction:row;padding:8px}.side.closed .logo{padding:0}.side .foot{margin-top:6px}}
+@media (prefers-reduced-motion:no-preference){.chip,.env{transition:transform .12s}.chip:hover{transform:translateY(-1px)}}
+</style>
+
+<div class="app" id="app"></div>
+<div id="overlay"></div>
+<div id="toast" hidden class="toast"></div>
+
+<script>
+// ---------- sample data (marked as demo in the UI) ----------
+const customers=[{id:1,name:"היחידה",color:"#225091"},{id:2,name:"צ.צ",color:"#A25DDC"},{id:3,name:"חטיבה",color:"#FDAB3D"}];
+const domains=[{id:1,customer_id:1,name:"SADAB",color:"#579BFC"},{id:2,customer_id:1,name:"PROD",color:"#E2445C"},{id:3,customer_id:1,name:"מאיה",color:"#00C875"},
+  {id:4,customer_id:2,name:"אדומה",color:"linear-gradient(135deg,#A25DDC,#FDAB3D)"},{id:5,customer_id:2,name:"PROD",color:"#0086C0"},{id:6,customer_id:3,name:"SADAB",color:"#225091"}];
+// branch = the department that owns the project (CEO view); category = kind of work
+const BRANCHES=[{id:1,name:"דיגיטל",color:"#0073EA"},{id:2,name:"Seal",color:"#7C4A2D"},{id:3,name:"תשתיות",color:"#00855F"}];
+const CATEGORIES=["שדרוג","פיתוח","אבטחה","תפעול"];
+const projects=[
+  {id:1,domain_id:1,name:"שדרוג מסדי נתונים",color:"#0086C0",status:"active",deadline:"2026-11-30",lead_days:14,depends_on:[4],branch:3,category:"שדרוג"},
+  {id:2,domain_id:1,name:"Linux 9.6",color:"#7C4A2D",status:"active",deadline:null,lead_days:14,depends_on:[],branch:3,category:"שדרוג"},
+  {id:3,domain_id:2,name:"SharePoint",color:"#A25DDC",status:"active",deadline:"2026-12-01",lead_days:14,depends_on:[4,2],branch:1,category:"פיתוח"},
+  {id:4,domain_id:2,name:"SQL",color:"#00855F",status:"active",deadline:null,lead_days:10,depends_on:[],branch:3,category:"שדרוג"},
+  {id:5,domain_id:1,name:"ניטור ותשתית",color:"#2E7D32",status:"active",deadline:null,lead_days:14,depends_on:[],branch:2,category:"תפעול"},
+  {id:6,domain_id:4,name:"גן חיות",color:"linear-gradient(135deg,#A25DDC,#FDAB3D)",status:"active",deadline:"2026-10-30",lead_days:14,depends_on:[],branch:1,category:"פיתוח"},
+  {id:7,domain_id:6,name:"בדיקות בוקר",color:"#A0A3B1",status:"closed",deadline:null,lead_days:14,depends_on:[],branch:2,category:"תפעול"},
+  {id:8,domain_id:3,name:"אינטגרציית API",color:"#0073EA",status:"active",deadline:null,lead_days:14,depends_on:[],branch:1,category:"אבטחה"}];
+const branchOf=p=>BRANCHES.find(b=>b.id===p.branch)||{name:"—",color:"var(--grey)"};
+const people=[{id:1,name:"דנה כהן",color:"#0086C0",user:"dana.c",branch:3},{id:2,name:"יוסי מזרחי",color:"#A25DDC",user:"yossi.m",branch:2},{id:3,name:"נועה ברק",color:"#00855F",user:"",branch:1}];
+const UNASSIGNED={id:0,name:"לא משובץ",color:"#A0A3B1"};
+let holidays=[{id:1,name:"ראש השנה",from:"2026-09-12",to:"2026-09-13"},{id:2,name:"יום כיפור",from:"2026-09-21",to:"2026-09-21"},{id:3,name:"סוכות",from:"2026-09-26",to:"2026-09-27"},{id:4,name:"שמחת תורה",from:"2026-10-15",to:"2026-10-15"}];
+const templates=[{id:1,name:"התקנת שרת",tasks:[{title:"סקירת לוגים",duration_min:60},{title:"בדיקת שירותים",duration_min:120},{title:"הקשחה",duration_min:150},{title:"תיעוד",duration_min:60}]},
+  {id:2,name:"בדיקות בוקר",tasks:[{title:"ניטור",duration_min:30},{title:"גיבויים",duration_min:30}]}];
+let tasks=[
+  {id:412,project_id:1,person_id:1,date:"2026-10-11",start_min:540,duration_min:120,percent_done:60,description:"כולל טבלאות ארכיון. לתאם עם DBA לפני ההרצה.",title:"שלב 2 · העתקת סכמות"},
+  {id:413,project_id:4,person_id:1,date:"2026-10-12",all_day:true,end_date:"2026-10-14",start_min:0,duration_min:0,percent_done:0,title:"הקשחה"},
+  {id:414,project_id:2,person_id:1,date:"2026-10-11",start_min:780,duration_min:90,percent_done:35,title:"בדיקות קבלה"},
+  {id:415,project_id:1,person_id:1,date:"2026-10-13",start_min:900,duration_min:60,percent_done:0,title:"מעבר PROD · הכנה"},
+  {id:420,project_id:1,person_id:2,date:"2026-12-02",start_min:900,duration_min:60,percent_done:25,title:"מעבר PROD"},
+  {id:421,project_id:1,person_id:0,date:"2026-10-14",start_min:840,duration_min:180,percent_done:100,title:"גיבויים"},
+  {id:430,project_id:5,person_id:2,date:"2026-10-11",start_min:480,duration_min:240,percent_done:100,title:"התקנת סוכנים"},
+  {id:431,project_id:5,person_id:2,date:"2026-10-12",start_min:600,duration_min:90,percent_done:0,title:"דשבורד"},
+  {id:432,project_id:2,person_id:2,date:"2026-10-12",start_min:660,duration_min:60,percent_done:0,title:"קרנל"},
+  {id:433,project_id:2,person_id:0,date:"2026-10-12",start_min:540,duration_min:60,percent_done:0,title:"סקירת לוגים"},
+  {id:440,project_id:3,person_id:3,date:"2026-10-25",start_min:540,duration_min:120,percent_done:10,title:"אפיון אתר"},
+  {id:441,project_id:3,person_id:3,date:"2026-12-20",start_min:540,duration_min:120,percent_done:0,title:"מעבר לייצור"},
+  {id:442,project_id:4,person_id:3,date:"2026-08-03",start_min:540,duration_min:120,percent_done:100,title:"התקנה"},
+  {id:443,project_id:4,person_id:3,date:"2026-11-05",start_min:540,duration_min:120,percent_done:60,title:"מיגרציה"},
+  {id:450,project_id:6,person_id:3,date:"2026-06-01",start_min:540,duration_min:120,percent_done:100,title:"תכנון"},
+  {id:451,project_id:6,person_id:3,date:"2026-09-20",start_min:540,duration_min:120,percent_done:100,title:"מסירה"},
+  {id:460,project_id:7,person_id:1,date:"2026-02-01",start_min:480,duration_min:30,percent_done:100,title:"ניטור"},
+  {id:461,project_id:7,person_id:1,date:"2026-04-20",start_min:480,duration_min:30,percent_done:100,title:"ניטור"},
+  {id:470,project_id:2,person_id:2,date:"2026-08-15",start_min:540,duration_min:120,percent_done:100,title:"הכנת מדיה"},
+  {id:471,project_id:2,person_id:2,date:"2026-11-10",start_min:540,duration_min:120,percent_done:0,title:"סגירת פרויקט"}];
+let nextId=500;
+
+// ---------- helpers ----------
+const iso=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+const parseIso=s=>{const [y,m,d]=s.split("-").map(Number);return new Date(y,m-1,d)};
+const addD=(d,n)=>{const x=new Date(d);x.setDate(x.getDate()+n);return x};
+const fmtDM=s=>{const [y,m,d]=s.split("-");return `${+d}/${+m}`};
+const fmtIso=s=>{const [y,m,d]=s.split("-");return `${+d}/${+m}/${y}`};
+const hm=m=>`${String(Math.floor(m/60)).padStart(2,"0")}:${String(m%60).padStart(2,"0")}`;
+const DOW=["ראשון","שני","שלישי","רביעי","חמישי","שישי","שבת"];
+const MONTHS=["ינו׳","פבר׳","מרץ","אפר׳","מאי","יוני","יולי","אוג׳","ספט׳","אוק׳","נוב׳","דצמ׳"];
+const TODAY=iso(new Date());
+const holidayOn=s=>holidays.find(h=>s>=h.from&&s<=h.to);
+const isWorkday=s=>{const g=parseIso(s).getDay();return g!==5&&g!==6&&!holidayOn(s)};
+const nextWorkday=s=>{let d=addD(parseIso(s),1);while(!isWorkday(iso(d)))d=addD(d,1);return iso(d)};
+function endFromDays(start,n){let s=isWorkday(start)?start:nextWorkday(start);for(let i=1;i<n;i++)s=nextWorkday(s);return s}
+function workdaysBetween(a,b){let n=0,s=a;while(s<=b){if(isWorkday(s))n++;s=iso(addD(parseIso(s),1))}return Math.max(1,n)}
+const isSpan=t=>!!t.all_day, spanEnd=t=>t.end_date||t.date;
+const projById=id=>projects.find(p=>p.id===id), domById=id=>domains.find(d=>d.id===id), custById=id=>customers.find(c=>c.id===id), personById=id=>id===0?UNASSIGNED:people.find(p=>p.id===id);
+const chainOf=pid=>{const p=projById(pid);const d=p&&domById(p.domain_id);return {project:p,domain:d,customer:d&&custById(d.customer_id)}};
+const isActive=p=>p.status==="active";
+const ini=n=>n.split(" ").map(w=>w[0]).join("");
+const weekStart=d=>addD(d,-d.getDay());
+
+// derived deadlines: pressure flows backwards along depends_on, each level subtracts its lead_days
+function effDeadline(id,seen=new Set()){
+  const p=projById(id);if(!p||seen.has(id))return null;seen.add(id);
+  let best=p.deadline?{date:p.deadline,own:true,via:null}:null;
+  for(const q of projects){
+    if(!isActive(q)||!q.depends_on.includes(id))continue;
+    const e=effDeadline(q.id,new Set(seen));if(!e)continue;
+    const c={date:iso(addD(parseIso(e.date),-q.lead_days)),own:false,via:q};
+    if(!best||c.date<best.date)best=c;
+  }
+  return best;
+}
+const taskLate=t=>{const e=effDeadline(t.project_id);return !!(e&&(isSpan(t)?spanEnd(t):t.date)>e.date)};
+const hasConflict=t=>t.person_id!==0&&!isSpan(t)&&tasks.some(o=>o.id!==t.id&&!isSpan(o)&&o.person_id===t.person_id&&o.date===t.date&&t.start_min<o.start_min+o.duration_min&&o.start_min<t.start_min+t.duration_min);
+const statusOf=t=>taskLate(t)?["תקוע","var(--stuck)"]:t.percent_done>=100?["בוצע","var(--done)"]:t.percent_done>0?["בעבודה","var(--work)"]:["מתוכנן","var(--plan)"];
+
+// ---------- generated demo data: 25 people, ~20 active projects, 150 tasks (seeded, so it's the same every load) ----------
+(function seed(){
+  let s=20261015;const rnd=()=>{s|=0;s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296};
+  const pick=a=>a[Math.floor(rnd()*a.length)];
+  const first=["אבי","מאיה","רון","שירה","עומר","טל","ליאור","הדס","אורי","נטע","גיא","רותם","אלון","יעל","ניר","מיכל","תומר","ענבר","עידו","שני","אסף","ליהי","דור","נוי"];
+  const last=["לוי","פרץ","ביטון","אברהם","פרידמן","שפירא","דהן","מלכה","אזולאי","חדד","גבאי","כץ"];
+  const cols=["#0086C0","#A25DDC","#00855F","#E2445C","#FDAB3D","#225091","#7C4A2D","#0073EA","#2E7D32","#B03A2E"];
+  for(let i=0;people.length<25;i++)people.push({id:10+i,name:`${first[i%first.length]} ${pick(last)}`,color:pick(cols),user:"",branch:1+i%3});
+  const pnames=["מיגרציה לענן פרטי","שדרוג Exchange","פורטל עובדים","מערכת כרטוס","חיזוק אבטחת רשת","אוטומציית גיבויים","שדרוג VMware","מערכת דוחות","אפליקציית שטח","ניהול זהויות","שדרוג רשת ליבה","מוקד שירות"];
+  pnames.forEach((n,i)=>{const d=pick(domains);const dl=rnd()<.6?iso(addD(new Date(),Math.floor(rnd()*700)+30)):null;
+    projects.push({id:20+i,domain_id:d.id,name:n,color:pick(cols),status:"active",deadline:dl,lead_days:pick([7,10,14,21]),depends_on:[],branch:1+i%3,category:pick(CATEGORIES)})});
+  const act=projects.filter(isActive);
+  const titles=["אפיון","פיתוח","בדיקות","התקנה","הדרכה","תיעוד","סקירת קוד","פגישת סטטוס","הקשחה","מיגרציה","ניטור","גיבוי","שדרוג גרסה","תיאום עם הלקוח","בדיקות קבלה"];
+  const t0=new Date();
+  const horizon=Math.round((new Date(2028,11,31)-t0)/864e5);   // today .. end of 2028
+  while(tasks.length<476){
+    const p=pick(act);
+    // front-loaded: 40% in the next 8 weeks (so the board is busy), the rest spread to 2028
+    const d=addD(t0,rnd()<.4?Math.floor(rnd()*56):Math.floor(rnd()*horizon));
+    if(d.getDay()>4)continue;const dIso=iso(d);
+    const span=rnd()<.12;const past=dIso<TODAY;
+    const pct=past?pick([100,100,75,50]):rnd()<.3?pick([25,50]):0;
+    const who=rnd()<.1?0:pick(people).id;
+    const t={id:nextId++,project_id:p.id,person_id:who,date:dIso,percent_done:pct,title:pick(titles),description:rnd()<.3?"נוצר אוטומטית לדוגמה":""};
+    if(span){t.all_day=true;t.end_date=endFromDays(dIso,pick([2,3,5]));t.start_min=0;t.duration_min=0}
+    else{t.start_min=480+30*Math.floor(rnd()*18);t.duration_min=pick([30,60,60,90,120,180,240])}
+    tasks.push(t);
+  }
+  // 24 double-bookings: a second timed task that starts in the middle of an existing one (first 6 in the current week)
+  const ws=iso(weekStart(t0)),we=iso(addD(weekStart(t0),4));
+  const wk=tasks.filter(t=>!isSpan(t)&&t.person_id>0&&t.date>=ws&&t.date<=we).concat(tasks.filter(t=>!isSpan(t)&&t.person_id>0&&t.date>we));
+  const seen=new Set();
+  for(const o of wk){if(seen.size>=24)break;const k=o.person_id+"|"+o.date;if(seen.has(k)||(seen.size<6&&o.date>we))continue;seen.add(k);
+    const p=pick(act.filter(x=>x.id!==o.project_id));
+    tasks.push({id:nextId++,project_id:p.id,person_id:o.person_id,date:o.date,start_min:o.start_min+30,duration_min:pick([60,90,120]),percent_done:0,title:pick(["פגישת סטטוס","תמיכה דחופה","תיאום עם הלקוח"]),description:"נוצר כדי להדגים חפיפה"})}
+})();
+
+// ---------- state ----------
+const st={level:"hub",custId:null,domId:null,mode:"week",anchor:weekStart(new Date()),gz:"month",gy:new Date().getFullYear(),gm:new Date().getMonth(),gEndY:2028,gf:{cust:"",dom:"",branch:"",cat:"",status:"",name:""},showClosed:false,admin:"hol",search:"",branch:0,cat:"",sideOpen:true};
+function scopedProjects(){return projects.filter(p=>(st.domId!=null?p.domain_id===st.domId:st.custId!=null?domById(p.domain_id).customer_id===st.custId:true)&&(!st.branch||p.branch===st.branch)&&(!st.cat||p.category===st.cat))}
+const filterBar=()=>`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px"><span style="color:var(--muted)">סינון:</span>
+  <select id="fBranch" class="in" style="width:170px;height:34px" aria-label="מחלקה"><option value="0">כל המחלקות</option>${BRANCHES.map(b=>`<option value="${b.id}" ${st.branch===b.id?"selected":""}>מחלקה: ${b.name}</option>`).join("")}</select>
+  <select id="fCat" class="in" style="width:170px;height:34px" aria-label="קטגוריה"><option value="">כל הקטגוריות</option>${CATEGORIES.map(c=>`<option ${st.cat===c?"selected":""}>קטגוריה: ${c}</option>`).join("")}</select>
+  ${st.branch||st.cat?`<button class="btn s" data-clearf>נקה</button>`:""}<span style="color:var(--muted)">${scopedProjects().filter(isActive).length} פרויקטים פעילים בתצוגה</span></div>`;
+const bBadge=p=>{const b=branchOf(p);return `<span class="tag" style="background:${b.color};font-size:11px;padding:2px 8px">${b.name}</span>`};
+const inScope=t=>scopedProjects().some(p=>p.id===t.project_id);
+// "all teams" (no customer) opens on the Gantt; drilling into a customer/environment opens the weekly board
+function go(level,cust,dom){st.level=level;st.custId=cust??null;st.domId=dom??null;if(level==="board")st.mode=st.custId==null?"gantt":(st.mode==="gantt"?"week":st.mode);render()}
+function toast(m){const t=document.getElementById("toast");t.textContent=m;t.hidden=false;clearTimeout(t._h);t._h=setTimeout(()=>t.hidden=true,2200)}
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+// ---------- shell ----------
+function render(){
+  const app=document.getElementById("app");
+  app.innerHTML=`<nav class="side ${st.sideOpen?"":"closed"}" aria-label="ניווט">${sidebar()}</nav><main class="main">${st.level==="admin"?adminView():st.level==="hub"?hubView():boardView()}</main>`;
+  bind();
+}
+function sidebar(){
+  if(!st.sideOpen){
+    const ic=(d)=>`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${d}</svg>`;
+    const I={menu:ic('<path d="M3 6h18M3 12h18M3 18h18"/>'),home:ic('<path d="M3 11l9-8 9 8v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/>'),
+      board:ic('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M9 10v10M15 10v10"/>'),gantt:ic('<path d="M3 6h8M7 12h10M11 18h10"/><path d="M3 3v18"/>'),
+      gear:ic('<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/>')};
+    const b=(cls,on,data,title,inner)=>`<button class="nav ${cls} ${on?"on":""}" ${data} title="${title}" aria-label="${title}" style="justify-content:center;padding:8px 0">${inner}</button>`;
+    return `<div class="logo"><button class="tgl" data-side title="פתח ניווט" aria-label="פתח ניווט">${I.menu}</button></div>
+      ${b("",st.level==="hub",'data-go="hub"',"הבית · כל הלקוחות",I.home)}
+      ${b("",st.level==="board"&&st.custId==null,'data-go="board"',"לוח כל הצוות",I.board)}
+      ${b("",st.level==="board"&&st.mode==="gantt",'data-go="gantt"',"גאנט",I.gantt)}
+      <div style="border-top:1px solid var(--line);margin:6px 4px"></div>
+      ${customers.map(c=>b("",st.level==="board"&&st.custId===c.id&&st.domId==null,`data-go="board" data-cust="${c.id}"`,c.name,`<span style="width:26px;height:26px;border-radius:6px;background:${c.color};color:#fff;display:inline-flex;align-items:center;justify-content:center;font-weight:700;font-size:13px">${c.name[0]}</span>`)
+        +(st.custId===c.id?domains.filter(d=>d.customer_id===c.id).map(d=>b("",st.domId===d.id,`data-go="board" data-cust="${c.id}" data-dom="${d.id}"`,`${c.name} › ${d.name}`,`<span class="sw r" style="background:${d.color};width:14px;height:14px"></span>`)).join(""):"")).join("")}
+      <div style="border-top:1px solid var(--line);margin:6px 4px"></div>
+      ${b("",st.level==="admin",'data-go="admin"',"ניהול",I.gear)}
+      <div class="foot" style="padding-top:10px;display:flex;justify-content:center"><span class="avatar" style="background:#7C4A2D" title="נירית · מנהלת התוכנית">נ</span></div>`;
+  }
+  const cust=customers.map(c=>`<button class="nav ${st.level==="board"&&st.custId===c.id&&st.domId==null?"on":""}" data-go="board" data-cust="${c.id}"><i class="sw" style="background:${c.color}"></i>${c.name}</button>`+
+    (st.custId===c.id?domains.filter(d=>d.customer_id===c.id).map(d=>`<button class="nav sub ${st.domId===d.id?"on":""}" data-go="board" data-cust="${c.id}" data-dom="${d.id}"><i class="sw r" style="background:${d.color}"></i>${d.name}</button>`).join(""):"")).join("");
+  return `<div class="logo"><i>T</i>TeamScheduler<button class="tgl" data-side title="כווץ ניווט" aria-label="כווץ ניווט">›</button></div>
+  <button class="nav ${st.level==="hub"?"on":""}" data-go="hub">הבית · כל הלקוחות</button>
+  <button class="nav ${st.level==="board"&&st.custId==null?"on":""}" data-go="board">לוח כל הצוות</button>
+  <div class="sec">לקוחות (Workspaces)</div>${cust}
+  <div class="sec">ניהול</div>
+  <button class="nav ${st.level==="admin"?"on":""}" data-go="admin">חגים · תבניות · אנשים · הרשאות</button>
+  <div class="foot"><div class="demo">נתוני דוגמה · מוקאפ אינטראקטיבי</div><div style="padding:8px 10px;display:flex;gap:8px;align-items:center"><span class="avatar" style="background:#7C4A2D">נ</span>נירית · מנהלת התוכנית</div></div>`;
+}
+function crumb(){
+  const parts=[`<button data-go="hub">לקוחות</button>`];
+  if(st.custId!=null)parts.push(st.domId!=null?`<button data-go="board" data-cust="${st.custId}">${custById(st.custId).name}</button>`:`<b>${custById(st.custId).name}</b>`);
+  if(st.domId!=null)parts.push(`<b>${domById(st.domId).name}</b>`);
+  if(st.custId==null&&st.level==="board")parts.push("<b>כל הצוות</b>");
+  return `<div class="crumb">${parts.join(" › ")}</div>`;
+}
+const MODES=[["gantt","גאנט"],["table","טבלה"],["week","שבועי"],["people","לפי אדם"]];
+function boardView(){
+  const title=st.domId!=null?domById(st.domId).name:st.custId!=null?custById(st.custId).name:"כל הצוות";
+  let range="";
+  if(st.mode==="gantt"){const {per}=ganttPeriods();const a=per[0].s,b=per[per.length-1].s;range=`${MONTHS[a.getMonth()]} ${a.getFullYear()} – ${MONTHS[b.getMonth()]} ${b.getFullYear()}`}
+  else if(st.mode!=="table")range=`${fmtDM(iso(st.anchor))} – ${fmtDM(iso(addD(st.anchor,4)))}`;
+  const picker=st.mode==="gantt"
+    ?`<select id="jumpY" class="in" style="width:auto;height:34px" aria-label="התחלה"><option value="">מהיום</option>${[-1,0,1,2].map(o=>{const y=new Date().getFullYear()+o;return `<option value="${y}" ${y===st.gy&&st.gm===0?"selected":""}>מינואר ${y}</option>`}).join("")}</select>
+      <select id="jumpE" class="in" style="width:auto;height:34px" aria-label="סיום">${[2026,2027,2028,2029,2030].map(y=>`<option value="${y}" ${y===st.gEndY?"selected":""}>עד סוף ${y}</option>`).join("")}</select>`
+    :`<input id="jumpD" class="in" type="date" value="${iso(st.anchor)}" style="width:auto;height:34px" aria-label="קפיצה לתאריך" title="קפיצה לשבוע של התאריך">`;
+  const nav=st.mode==="table"?"":`<div class="range"><button data-step="-1" aria-label="הקודם" title="${st.mode==="gantt"?"שנה קודמת":"שבוע קודם"}">‹</button><button data-step="0">היום</button><button data-step="1" aria-label="הבא" title="${st.mode==="gantt"?"שנה הבאה":"שבוע הבא"}">›</button>${picker}<span>${range}</span></div>`;
+  return `${crumb()}<div class="head"><h1>${title} · ${MODES.find(m=>m[0]===st.mode)[1]}</h1><div class="acts"><button class="btn p" data-newtask>+ משימה</button><button class="btn" data-toast="ייצוא PDF יופק בשרת (5 פריסות ההדפסה הקיימות)">ייצוא PDF</button></div></div>
+  <div class="tabs">${MODES.map(([k,l])=>`<button class="${st.mode===k?"on":""}" data-mode="${k}">${l}</button>`).join("")}${nav}</div>
+  ${filterBar()}
+  ${{week:weekView,table:tableView,people:peopleView,gantt:ganttView}[st.mode]()}`;
+}
+
+// ---------- weekly ----------
+function days(){return [0,1,2,3,4].map(i=>iso(addD(st.anchor,i)))}
+function tasksFor(pid,d){return tasks.filter(t=>t.person_id===pid&&inScope(t)&&(isSpan(t)?d>=t.date&&d<=spanEnd(t)&&(isWorkday(d)||t.date===spanEnd(t)):t.date===d)).sort((a,b)=>a.start_min-b.start_min)}
+function chip(t){
+  const {project,domain}=chainOf(t.project_id);const c=isActive(project)?project.color:"#a8a091";
+  if(isSpan(t)){const n=workdaysBetween(t.date,spanEnd(t));return `<button class="pill" data-task="${t.id}"><b>${esc(t.title)}</b><span>${t._n}/${n}</span></button>`}
+  const flags=(taskLate(t)?`<span class="tag" style="background:var(--stuck)">אחרי היעד</span>`:"")+(hasConflict(t)?`<span class="tag" style="background:var(--work)">חפיפה</span>`:"");
+  return `<button class="chip ${t.person_id===0?"un":""}" data-task="${t.id}" style="--c:${c.startsWith("linear")?"#8a8378":c}" title="${esc(t.description||"")}">
+    <span class="row"><b>${hm(t.start_min)}–${hm(t.start_min+t.duration_min)}</b><span style="display:flex;gap:4px">${flags}<span class="tag" style="background:${domain.color}">${domain.name}</span></span></span>
+    <span>${esc(project.name)} · ${esc(t.title)}</span><span style="color:var(--muted);font-size:11px">${branchOf(project).name} · ${project.category}</span>${t.percent_done?`<span class="prog"><i style="width:${t.percent_done}%"></i></span>`:""}</button>`;
+}
+function weekView(){
+  const ds=days();
+  const rows=people.concat(tasks.some(t=>t.person_id===0&&inScope(t)&&ds.some(d=>tasksFor(0,d).length))?[UNASSIGNED]:[]);
+  const head=`<div class="h who">עובד</div>`+ds.map(d=>{const h=holidayOn(d);return `<div class="h ${d===TODAY?"today":""} ${h?"hol":""}"><b>${fmtDM(d)}</b><small>${DOW[parseIso(d).getDay()]}${d===TODAY?" · היום":""}${h?" · חג: "+h.name:""}</small></div>`}).join("");
+  const body=rows.map(p=>{
+    const wk=ds.flatMap(d=>tasksFor(p.id,d)).filter((t,i,a)=>a.indexOf(t)===i);
+    const hrs=wk.filter(t=>!isSpan(t)).reduce((s,t)=>s+t.duration_min,0)/60;
+    return `<div class="who"><span style="display:flex;gap:8px;align-items:center"><span class="avatar" style="background:${p.color}">${ini(p.name)}</span>${p.name}</span><small>${hrs} שעות · ${wk.length} משימות</small></div>`+
+      ds.map(d=>{const h=holidayOn(d);const list=tasksFor(p.id,d).map(t=>{if(isSpan(t))t._n=workdaysBetween(t.date,d);return chip(t)});
+        return `<div class="cell ${d===TODAY?"today":""} ${h?"hol":""}" data-cell="${p.id}|${d}">${list.join("")||(h?`<small style="color:var(--hol-fg);text-align:center">חג · לא נספר כיום עבודה</small>`:"")}</div>`}).join("");
+  }).join("");
+  return `<div class="card scroll"><div class="grid" style="grid-template-columns:170px repeat(5,minmax(0,1fr))">${head}${body}</div></div>
+  <div class="legend"><span>מקרא</span>${domains.map(d=>`<span><i style="background:${d.color}"></i>${custById(d.customer_id).name} / ${d.name}</span>`).join("")}<span style="margin-inline-start:auto">פס צבע = פרויקט · תגית = סביבה · פס ירוק = ביצוע · לחיצה על תא ריק = משימה חדשה</span></div>`;
+}
+
+// ---------- people ----------
+function peopleView(){
+  const ds=days();
+  return `<div class="two">${people.concat([UNASSIGNED]).map(p=>{
+    const list=ds.flatMap(d=>tasksFor(p.id,d).map(t=>({t,d}))).filter((x,i,a)=>a.findIndex(y=>y.t===x.t)===i);
+    if(!list.length&&p.id===0)return "";
+    const hrs=list.filter(x=>!isSpan(x.t)).reduce((s,x)=>s+x.t.duration_min,0)/60;
+    return `<section class="card panel"><h2 style="display:flex;gap:8px;align-items:center"><span class="avatar" style="background:${p.color}">${ini(p.name)}</span>${p.name}<small style="margin-inline-start:auto;color:var(--muted);font-weight:400">${hrs} שעות השבוע</small></h2>
+    ${list.length?list.map(({t,d})=>{const {project}=chainOf(t.project_id);const [s,c]=statusOf(t);return `<button class="chip" data-task="${t.id}" style="--c:${project.color.startsWith("linear")?"#8a8378":project.color}"><span class="row"><b>${DOW[parseIso(t.date).getDay()]} ${fmtDM(t.date)} · ${isSpan(t)?"כל היום עד "+fmtDM(spanEnd(t)):hm(t.start_min)}</b><span class="tag" style="background:${c}">${s}</span></span><span>${esc(project.name)} · ${esc(t.title)}</span></button>`}).join(""):`<div class="demo">אין משימות השבוע</div>`}</section>`}).join("")}</div>`;
+}
+
+// ---------- table ----------
+function tableView(){
+  const prs=scopedProjects().filter(p=>st.showClosed||isActive(p));
+  const closedN=scopedProjects().filter(p=>!isActive(p)).length;
+  const q=st.search.trim();
+  return `<div style="display:flex;flex-wrap:wrap;gap:10px;align-items:center"><input id="q" class="in" style="width:220px" placeholder="חיפוש משימה…" value="${esc(q)}" aria-label="חיפוש">
+    <label style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted)"><input type="checkbox" id="showClosed" ${st.showClosed?"checked":""}> הצג פרויקטים סגורים (${closedN})</label>
+    <button class="btn s" style="margin-inline-start:auto" data-toast="יצירת פרויקט: שם, סביבה, צבע, יעד, זמן בנייה, תלויות">+ פרויקט</button></div>`+
+  prs.map(p=>{
+    const rows=tasks.filter(t=>t.project_id===p.id&&(!q||t.title.includes(q))).sort((a,b)=>a.date.localeCompare(b.date));
+    const e=effDeadline(p.id);const overdue=isActive(p)&&e&&e.date<TODAY;const late=!overdue&&e&&rows.some(taskLate);
+    const deps=p.depends_on.map(id=>projById(id));
+    const missing=deps.filter(d=>!projects.some(x=>x.domain_id===p.domain_id&&x.name===d.name));
+    const sched=deps.filter(d=>{const a=tasks.filter(t=>t.project_id===p.id).map(t=>t.date).sort()[0],b=tasks.filter(t=>t.project_id===d.id).map(t=>t.date).sort()[0];return a&&b&&a<b});
+    const avg=rows.length?Math.round(rows.reduce((s,t)=>s+t.percent_done,0)/rows.length):0;
+    const cnt={};rows.forEach(t=>{const [s,c]=statusOf(t);cnt[c]=(cnt[c]||0)+1});
+    const c=p.color.startsWith("linear")?"#8a8378":p.color;
+    return `<section class="group" style="--c:${isActive(p)?c:"#a8a091"}"><div class="ghead"><h2>${esc(p.name)}${isActive(p)?"":" (סגור)"}</h2>${bBadge(p)}<span class="badge">${p.category}</span>
+      ${e?`<span class="badge ${overdue?"red":late?"org":""}" ${e.own?"":"style=\"font-style:italic\""}>${e.own?"יעד":"יעד נגזר"} ${fmtIso(e.date)}${e.via?" · נדרש ל־"+esc(e.via.name):""}${overdue?" · עבר היעד":late?" · משימות אחרי היעד":""}</span>`:""}
+      <span style="font-size:12px;color:var(--muted)">זמן בנייה ${p.lead_days} יום${deps.length?" · תלוי ב: "+deps.map(d=>esc(d.name)).join(", "):""}</span>
+      ${missing.length?`<span class="badge hol">תלות חסרה בסביבה: ${missing.map(d=>esc(d.name)).join(", ")}</span>`:""}
+      ${sched.length?`<span class="badge org">מתחיל לפני ${esc(sched[0].name)}</span>`:""}
+      <div class="acts"><button class="btn s" data-newtask="${p.id}">+ משימה</button><button class="btn s" data-tpl="${p.id}">החל תבנית</button><button class="btn s" data-toast="העתקה לסביבה אחרת של אותו לקוח, כולל שרשרת התלויות">העתק לסביבה…</button><button class="btn s" data-close="${p.id}">${isActive(p)?"סגור פרויקט":"פתח מחדש"}</button></div></div>
+    <div class="card scroll"><div class="tgrid" style="--n:${rows.length+2}"><div class="stripe"></div>
+      <div class="th"><input type="checkbox" aria-label="בחר הכל"></div><div class="th" style="justify-content:flex-start">משימה</div><div class="th">אחראי</div><div class="th">תאריך</div><div class="th">שעה / משך</div><div class="th">סטטוס</div><div class="th">התקדמות</div>
+      ${rows.map(t=>{const [s,col]=statusOf(t);const who=personById(t.person_id);return `<div class="c"><input type="checkbox" aria-label="בחר"></div>
+        <div class="name" data-task="${t.id}"><span>${esc(t.title)} ${isSpan(t)?`<span class="badge">יום מלא · ${workdaysBetween(t.date,spanEnd(t))} ימי עבודה</span>`:""}${holidayOn(t.date)?`<span class="badge hol">חג</span>`:""}</span>${t.description?`<small>${esc(t.description)}</small>`:""}</div>
+        <div class="c" ${who.id===0?'style="color:var(--muted);font-style:italic"':""}><span class="avatar" style="background:${who.color}">${ini(who.name)}</span>${who.name}</div>
+        <div class="c" style="font-variant-numeric:tabular-nums">${isSpan(t)?fmtDM(t.date)+" – "+fmtDM(spanEnd(t)):DOW[parseIso(t.date).getDay()]+" "+fmtDM(t.date)}</div>
+        <div class="c">${isSpan(t)?"כל היום":hm(t.start_min)+" · "+t.duration_min/60+" ש׳"}</div>
+        <div class="st" style="background:${col}" data-cycle="${t.id}" title="לחיצה מקדמת ביצוע">${s}</div>
+        <div><span class="bar"><i style="width:${t.percent_done}%"></i></span><span style="width:34px;font-size:12px;text-align:left">${t.percent_done}%</span></div>`}).join("")}
+      <div class="ft"></div><div class="ft" style="grid-column:span 2">${rows.length} משימות · ${rows.filter(t=>!isSpan(t)).reduce((s,t)=>s+t.duration_min,0)/60} שעות · ${rows.filter(t=>t.person_id===0).length} לא משובצות</div><div class="ft c">${rows.length?fmtDM(rows[0].date)+" – "+fmtDM(rows[rows.length-1].date):"—"}</div><div class="ft"></div>
+      <div class="ft"><span class="battery">${Object.entries(cnt).map(([c,n])=>`<i style="width:${n/rows.length*100}%;background:${c}"></i>`).join("")}</span></div><div class="ft"><span class="bar"><i style="width:${avg}%"></i></span><span style="width:34px;font-size:12px;text-align:left">${avg}%</span></div></div></div></section>`;
+  }).join("")||`<div class="demo">אין פרויקטים בטווח</div>`;
+}
+
+// ---------- gantt ----------
+const FZ=[0,100,180,270,350,490];   // sticky offsets of the 6 fixed gantt columns (100,80,90,80,140,180 px)
+// the gantt window: from month st.gm of year st.gy up to Dec of st.gEndY (default: today .. 2028); slides by period, not by pixel
+function ganttPeriods(){
+  const per=[],end=new Date(st.gEndY,11,1);
+  if(st.gz==="month"){let s=new Date(st.gy,st.gm,1);if(s>end)s=end;for(;s<=end;s=new Date(s.getFullYear(),s.getMonth()+1,1))per.push({s,e:new Date(s.getFullYear(),s.getMonth()+1,1),l:MONTHS[s.getMonth()],g:`${s.getFullYear()}-Q${Math.floor(s.getMonth()/3)+1}`})}
+  else{let s=new Date(st.gy,Math.floor(st.gm/3)*3,1);if(s>end)s=new Date(st.gEndY,9,1);for(;s<=end;s=new Date(s.getFullYear(),s.getMonth()+3,1))per.push({s,e:new Date(s.getFullYear(),s.getMonth()+3,1),l:`Q${Math.floor(s.getMonth()/3)+1}`,g:`${s.getFullYear()}`})}
+  const groups=[];for(const p of per){const g=groups[groups.length-1];if(g&&g.l===p.g)g.n++;else groups.push({l:p.g,n:1})}
+  return {per,groups};
+}
+function ganttView(){
+  const {per,groups}=ganttPeriods();
+  const N=per.length;
+  const pos=d=>{if(d<per[0].s)return 0;for(let i=0;i<N;i++)if(d<per[i].e)return (i+(d-per[i].s)/(per[i].e-per[i].s))/N*100;return 100};
+  const lo=iso(per[0].s),hi=iso(per[N-1].e);
+  const range=new Map();for(const t of tasks){const end=isSpan(t)?spanEnd(t):t.date;const r=range.get(t.project_id);if(!r)range.set(t.project_id,{from:t.date,to:end,p:[t.percent_done]});else{if(t.date<r.from)r.from=t.date;if(end>r.to)r.to=end;r.p.push(t.percent_done)}}
+  let skip=0;const f=st.gf;
+  const stat=p=>{const e=effDeadline(p.id);return !isActive(p)?"closed":e&&e.date<TODAY?"over":"ok"};
+  const rows=scopedProjects().filter(p=>st.showClosed||isActive(p)).map(p=>({p,r:range.get(p.id)})).filter(x=>{if(!x.r||x.r.to<lo||x.r.from>=hi){skip++;return false}return true})
+    .filter(({p,r})=>{const {domain,customer}=chainOf(p.id);const e=effDeadline(p.id);const s=stat(p)==="ok"&&e&&r.to>e.date?"late":stat(p);
+      return (!f.cust||customer.id===+f.cust)&&(!f.dom||domain.name===f.dom)&&(!f.branch||p.branch===+f.branch)&&(!f.cat||p.category===f.cat)&&(!f.status||s===f.status)&&(!f.name||p.name.includes(f.name))});
+  const fsel=(k,opts,label)=>`<select class="in gfi" data-gf="${k}" aria-label="סינון ${label}" style="height:28px;padding:0 4px;font-size:12px"><option value="">${label}: הכל</option>${opts.map(([v,l])=>`<option value="${v}" ${String(f[k])===String(v)?"selected":""}>${l}</option>`).join("")}</select>`;
+  const fcells=`<div class="h fz" style="right:${FZ[0]}px;padding:4px">${fsel("cust",customers.map(c=>[c.id,c.name]),"לקוח")}</div>
+    <div class="h fz" style="right:${FZ[1]}px;padding:4px">${fsel("dom",[...new Set(domains.map(d=>d.name))].map(n=>[n,n]),"סביבה")}</div>
+    <div class="h fz" style="right:${FZ[2]}px;padding:4px">${fsel("branch",BRANCHES.map(b=>[b.id,b.name]),"מחלקה")}</div>
+    <div class="h fz" style="right:${FZ[3]}px;padding:4px">${fsel("cat",CATEGORIES.map(c=>[c,c]),"קטגוריה")}</div>
+    <div class="h fz" style="right:${FZ[4]}px;padding:4px">${fsel("status",[["ok","פעיל · בלו\"ז"],["late","משימות אחרי היעד"],["over","עבר היעד"],["closed","סגור"]],"סטטוס")}</div>
+    <div class="h fz" style="right:${FZ[5]}px;padding:4px;border-left:2px solid var(--fg)"><input class="in gfi" data-gf="name" value="${esc(f.name)}" placeholder="פרויקט: חיפוש…" aria-label="סינון פרויקט" style="height:28px;padding:0 6px;font-size:12px"></div>
+    <div class="h" style="grid-column:span ${N};font-size:12px;color:var(--muted);font-weight:400;justify-content:flex-start;gap:8px">${rows.length} פרויקטים${Object.values(f).some(v=>v)?` · <button class="btn s" data-gfclear>נקה סינון</button>`:""}</div>`;
+  const thick=i=>i&&per[i].g!==per[i-1].g;   // thicker line where the quarter / year changes
+  const lines=per.map((p,i)=>i?`<i class="gl ${thick(i)?"thick":""}" style="right:${i/N*100}%"></i>`:"").join("")+(TODAY>=lo&&TODAY<hi?`<i class="gl today" style="right:${pos(parseIso(TODAY))}%"></i>`:"");
+  return `<div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center"><div class="seg"><button class="${st.gz==="month"?"on":""}" data-gz="month">חודשי</button><button class="${st.gz==="quarter"?"on":""}" data-gz="quarter">רבעוני</button></div>
+    <label style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted)"><input type="checkbox" id="showClosed" ${st.showClosed?"checked":""}> כולל פרויקטים סגורים</label></div>
+  <div class="card" style="overflow:hidden"><div class="gbarnav"><button class="btn s" data-gshift="-1" title="${st.gz==="month"?"חודש אחורה":"רבעון אחורה"}">‹ אחורה</button><div class="gtop scroll" id="gTop" aria-hidden="true"><div id="gTopInner" style="height:1px"></div></div><button class="btn s" data-gshift="1" title="${st.gz==="month"?"חודש קדימה":"רבעון קדימה"}">קדימה ›</button></div>
+  <div class="scroll" id="gScroll"><div class="ggrid" id="gGrid" style="--n:${N}">
+    ${["לקוח","סביבה","מחלקה","קטגוריה","סטטוס","פרויקט"].map((l,i)=>`<div class="h fz" style="grid-row:span 2;right:${FZ[i]}px${i===5?";border-left:2px solid var(--fg)":""}">${l}</div>`).join("")}
+    ${groups.map((g,i)=>`<div class="q ${i?"thick":""}" style="grid-column:span ${g.n}">${g.l}</div>`).join("")}
+    ${per.map((p,i)=>`<div class="m ${thick(i)?"thick":""} ${TODAY>=iso(p.s)&&TODAY<iso(p.e)?"today":""}">${p.l}</div>`).join("")}
+    ${fcells}
+    ${rows.map(({p,r})=>{const {domain,customer}=chainOf(p.id);const e=effDeadline(p.id);const over=isActive(p)&&e&&e.date<TODAY;const late=!over&&e&&r.to>e.date;
+      const [s,c]=!isActive(p)?["סגור","var(--muted)"]:over?["עבר היעד","var(--stuck)"]:late?["משימות אחרי היעד","var(--work)"]:["פעיל · בלו\"ז","var(--done)"];
+      const a=pos(parseIso(r.from)),b=pos(addD(parseIso(r.to),1));const avg=Math.round(r.p.reduce((x,y)=>x+y,0)/r.p.length);
+      return `<div class="fz" style="right:${FZ[0]}px">${customer.name}</div><div class="fz" style="right:${FZ[1]}px">${domain.name}</div><div class="fz" style="right:${FZ[2]}px">${bBadge(p)}</div><div class="fz" style="right:${FZ[3]}px;font-size:12px">${p.category}</div><div class="fz" style="right:${FZ[4]}px"><span class="status" style="background:${c}">${s}</span></div>
+      <div class="fz" style="right:${FZ[5]}px;border-left:2px solid var(--fg);flex-direction:column;align-items:flex-start;font-weight:600">${esc(p.name)}${e?`<small style="font-weight:400;color:var(--muted);${e.own?"":"font-style:italic"}">${e.own?"יעד":"יעד נגזר"} ${fmtDM(e.date)}${e.via?" · נדרש ל־"+esc(e.via.name):""}</small>`:""}</div>
+      <div class="tl">${lines}<button class="gbar" data-proj="${p.id}" style="right:${a}%;width:${Math.max(b-a,.6)}%;background:${isActive(p)?p.color:"#a8a091"}" title="${esc(p.name)} · ${fmtIso(r.from)} – ${fmtIso(r.to)}">${avg}% · ${fmtDM(r.from)} – ${fmtDM(r.to)}</button>${e&&e.date>=lo&&e.date<hi?`<i class="gdl ${over?"over":""}" style="right:${pos(parseIso(e.date))}%" title="יעד ${fmtIso(e.date)}"></i>`:""}</div>`}).join("")}
+  </div></div>
+  <div class="gbarnav"><button class="btn s" data-gshift="-1">‹ אחורה</button><span style="flex:1;text-align:center;font-size:12px;color:var(--muted)">אחורה / קדימה מזיזים ${st.gz==="month"?"חודש":"רבעון"} · ‹ › למעלה מזיזים שנה · חיצי המקלדת ← → · הפסים גוללים את התצוגה</span><button class="btn s" data-gshift="1">קדימה ›</button></div></div>
+  <div class="legend"><span><i style="width:18px;height:0;border-top:2px dashed var(--stuck)"></i>היום</span><span><i style="width:3px;background:var(--fg)"></i>יעד (נגזר = נטוי)</span><span>אחוז = ממוצע ביצוע המשימות</span>${skip?`<span>${skip} פרויקטים ללא משימות / מחוץ לטווח</span>`:""}<span style="margin-inline-start:auto">לחיצה על פס פותחת את הפרויקט בטבלה</span></div>`;
+}
+
+// ---------- hub ----------
+function hubView(){
+  const att=[];
+  for(const p of projects.filter(isActive)){const e=effDeadline(p.id);const {domain,customer}=chainOf(p.id);
+    if(e&&e.date<TODAY)att.push(["עבר היעד","var(--stuck)",`${p.name} (${customer.name} · ${domain.name}) — ${e.own?"יעד":"יעד נגזר"} ${fmtDM(e.date)}${e.via?" מ-"+e.via.name:""}`]);
+    else{const l=tasks.find(t=>t.project_id===p.id&&taskLate(t));if(l)att.push(["אחרי היעד","var(--work)",`${p.name} — "${l.title}" ב-${fmtDM(l.date)} אחרי יעד ${fmtDM(e.date)}`])}}
+  const un=tasks.filter(t=>t.person_id===0&&t.date>=TODAY).length;if(un)att.push(["לא משובץ","var(--muted)",`${un} משימות ללא אחראי`]);
+  const cf=tasks.find(hasConflict);if(cf)att.push(["חפיפה","var(--work)",`${personById(cf.person_id).name} — משימות חופפות ב-${fmtDM(cf.date)}`]);
+  const nh=holidays.filter(h=>h.to>=TODAY)[0];if(nh)att.push(["חג","var(--grey)",`${nh.name} ${fmtDM(nh.from)}${nh.to!==nh.from?" – "+fmtDM(nh.to):""} — לא נספר כיום עבודה`]);
+  const envNames=[...new Set(domains.map(d=>d.name))];
+  return `<div class="head"><h1>כל הלקוחות</h1><span style="font-size:13px;color:var(--muted)">${customers.length} לקוחות · ${domains.length} סביבות · ${projects.filter(isActive).length} פרויקטים פעילים · ${tasks.length} משימות (${tasks.filter(t=>t.percent_done<100).length} פתוחות · ${tasks.filter(t=>t.person_id===0&&t.percent_done<100).length} לא משובצות) · ${people.length} אנשי צוות</span><div class="acts"><button class="btn" data-go="board">לוח כל הצוות</button><button class="btn p" data-toast="לקוח חדש: שם + צבע">+ לקוח</button></div></div>
+  <div class="cards">${customers.map(c=>{const ds=domains.filter(d=>d.customer_id===c.id);const prs=projects.filter(p=>ds.some(d=>d.id===p.domain_id));
+    return `<article class="ccard" style="--c:${c.color}"><h2 style="display:flex;align-items:center;gap:8px"><button class="nav" style="padding:0;width:auto;font:inherit;font-weight:700" data-go="board" data-cust="${c.id}" title="כל הסביבות של ${c.name}">${c.name}</button><small style="margin-inline-start:auto;font-size:12px;color:var(--accent);font-weight:400">כניסה ללקוח ›</small></h2><div class="stats"><span><b>${ds.length}</b> סביבות</span><span><b>${prs.filter(isActive).length}</b> פרויקטים</span><span><b>${tasks.filter(t=>prs.some(p=>p.id===t.project_id)&&t.percent_done<100).length}</b> משימות פתוחות</span><span><b>${tasks.filter(t=>prs.some(p=>p.id===t.project_id)&&t.date>=iso(st.anchor)&&t.date<=iso(addD(st.anchor,4))&&!isSpan(t)).reduce((s,t)=>s+t.duration_min,0)/60}</b> שעות השבוע</span></div>
+    ${ds.map(d=>{const n=prs.filter(p=>p.domain_id===d.id);const bad=n.filter(p=>{const e=effDeadline(p.id);return isActive(p)&&e&&e.date<TODAY}).length;return `<button class="env" data-go="board" data-cust="${c.id}" data-dom="${d.id}"><i class="sw r" style="background:${d.color};width:14px;height:14px"></i><b>${d.name}</b><small>${n.filter(isActive).length} פרויקטים${bad?" · "+bad+" עבר היעד":""}${n.some(p=>!isActive(p))?" · "+n.filter(p=>!isActive(p)).length+" סגור":""}</small></button>`}).join("")}
+    <button class="btn" style="border-style:dashed;color:var(--accent)" data-toast="סביבה חדשה — צבע ייחודי נאכף בשמירה">+ סביבה</button></article>`}).join("")}</div>
+  <div class="two"><section class="card panel"><h2>מקרא צבעים · לקוח × סביבה</h2><div class="matrix" style="grid-template-columns:90px repeat(${envNames.length},minmax(0,1fr))"><div></div>${envNames.map(n=>`<div style="color:var(--muted)">${n}</div>`).join("")}
+    ${customers.map(c=>`<div style="justify-content:flex-start;font-weight:600">${c.name}</div>`+envNames.map(n=>{const d=domains.find(x=>x.customer_id===c.id&&x.name===n);return `<div style="background:${d?d.color:"var(--bg)"}"></div>`}).join("")).join("")}</div><small style="color:var(--muted)">כל סביבה חייבת צבע ייחודי בכל המערכת. גרדיאנט מותר.</small></section>
+  <section class="card panel"><h2>דורש תשומת לב</h2>${att.map(([l,c,t])=>`<div class="att"><span class="tag" style="background:${c};font-size:12px;padding:2px 8px;border-radius:3px">${l}</span>${esc(t)}</div>`).join("")||`<div class="demo">הכל בסדר</div>`}</section>
+  <section class="card panel"><h2>לפי מחלקה</h2>${BRANCHES.map(b=>{const prs=projects.filter(p=>p.branch===b.id&&isActive(p));const bad=prs.filter(p=>{const e=effDeadline(p.id);return e&&e.date<TODAY}).length;const avg=prs.length?Math.round(prs.reduce((s,p)=>{const ts=tasks.filter(t=>t.project_id===p.id);return s+(ts.length?ts.reduce((x,t)=>x+t.percent_done,0)/ts.length:0)},0)/prs.length):0;
+    return `<button class="att" style="border:0;width:100%;text-align:right;cursor:pointer;color:var(--fg)" data-branch="${b.id}"><span class="tag" style="background:${b.color};font-size:12px;padding:2px 8px;border-radius:3px">${b.name}</span><span>${prs.length} פרויקטים · ${people.filter(p=>p.branch===b.id).length} אנשים${bad?` · <b style="color:var(--stuck)">${bad} עבר היעד</b>`:""}</span><span class="bar" style="max-width:120px;margin-inline-start:auto"><i style="width:${avg}%"></i></span><span style="font-size:12px;width:34px">${avg}%</span></button>`}).join("")}
+  <h2 style="margin-top:6px">לפי קטגוריה</h2><div style="display:flex;flex-wrap:wrap;gap:6px">${CATEGORIES.map(c=>`<button class="btn s" data-cat="${c}">${c} · ${projects.filter(p=>p.category===c&&isActive(p)).length}</button>`).join("")}</div></section></div>`;
+}
+
+// ---------- admin ----------
+function adminView(){
+  const tabs=[["hol","חגים"],["tpl","תבניות משימות"],["ppl","אנשי צוות"],["auth","משתמשים והרשאות"],["bak","גיבוי ושחזור"]];
+  let body="";
+  if(st.admin==="hol")body=`<div class="form"><label>שם<input id="hName" class="in" placeholder="למשל: פסח"></label><label>מתאריך<input id="hFrom" class="in" type="date"></label><label>עד תאריך<input id="hTo" class="in" type="date"></label><button class="btn p" data-addhol>+ חג</button></div>
+    <div class="list" style="grid-template-columns:1fr 130px 130px 80px"><div class="th">שם</div><div class="th">מתאריך</div><div class="th">עד תאריך</div><div class="th"></div>
+    ${holidays.map(h=>`<div ${h.from<=TODAY&&h.to>=TODAY?'style="background:var(--hol)"':""}>${esc(h.name)}</div><div>${fmtIso(h.from)}</div><div>${fmtIso(h.to)}</div><div><button class="btn s danger" data-delhol="${h.id}">מחק</button></div>`).join("")}</div>
+    <small style="color:var(--muted)">חג צובע את העמודה בלוח, מדלגים עליו בספירת ימי עבודה, ומזהירים (לא חוסמים) כשמשבצים עליו. נסו להוסיף חג בשבוע הנוכחי ולחזור ללוח.</small>`;
+  else if(st.admin==="tpl")body=templates.map(t=>`<div class="card panel"><div style="display:flex;gap:8px;align-items:center"><b>${esc(t.name)}</b><small style="color:var(--muted)">${t.tasks.length} משימות · ${t.tasks.reduce((s,x)=>s+x.duration_min,0)/60} שעות</small><button class="btn s" style="margin-inline-start:auto" data-toast="עריכת תבנית: שורות כותרת + משך">ערוך</button></div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;font-size:12px">${t.tasks.map(x=>`<span class="badge">${esc(x.title)} · ${x.duration_min/60} ש׳</span>`).join("")}</div></div>`).join("")+`<small style="color:var(--muted)">"החל תבנית" על פרויקט (בטבלה) יוצר את המשימות ברצף מהשעה שנבחרה, לא משובצות.</small>`;
+  else if(st.admin==="ppl")body=`<div class="list" style="grid-template-columns:1fr 130px 120px 100px"><div class="th">שם</div><div class="th">משימות פתוחות</div><div class="th">משתמש</div><div class="th"></div>
+    ${people.map(p=>`<div><span class="avatar" style="background:${p.color}">${ini(p.name)}</span>${p.name} <span class="tag" style="background:${(BRANCHES.find(b=>b.id===p.branch)||{color:"var(--grey)"}).color};font-size:11px;padding:2px 8px">${(BRANCHES.find(b=>b.id===p.branch)||{name:"—"}).name}</span></div><div>${tasks.filter(t=>t.person_id===p.id&&t.percent_done<100).length}</div><div style="color:var(--muted)">${p.user||"—"}</div><div><button class="btn s danger" data-delppl="${p.id}">מחק…</button></div>`).join("")}</div>
+    <div id="reassign"></div><small style="color:var(--muted)">רשימת אנשים אחת לכל הלקוחות. מחיקת עובד עם משימות מחייבת העברה לעובד אחר או ל"לא משובץ".</small>`;
+  else if(st.admin==="auth")body=`<div class="cards">${[["מנכ\"ל · צפייה","#7C4A2D","גאנט, הבית, טבלאות, ייצוא PDF. בלי עריכה."],["מנהל צוות · עריכה","#225091","הכל: לקוחות, סביבות, פרויקטים, משימות, חגים, תבניות, אנשים."],["עובד · המשימות שלי","#00855F","רואה את הלוח, מעדכן תיאור ואחוז ביצוע במשימות שלו."]].map(([n,c,d])=>`<div class="ccard" style="--c:${c}"><h2>${n}</h2><div style="color:var(--muted);font-size:13px">${d}</div></div>`).join("")}</div><small style="color:var(--muted)">כניסה דרך Keycloak (SSO) או משתמש/סיסמה פשוט — להחלטה.</small>`;
+  else body=`<div class="card panel"><div>גיבוי אוטומטי יומי 02:00 (pg_dump) · אחרון: ${fmtIso(TODAY)} 02:00 · 14 ימים נשמרים</div><div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-toast="גיבוי נוצר (דמו)">גבה עכשיו</button><button class="btn" data-toast="ייבוא חד-פעמי של 7 קבצי ה-JSON מהגרסה הנוכחית">ייבוא מקבצי JSON (גרסה ישנה)</button></div></div>`;
+  return `<div class="head"><h1>ניהול המערכת</h1></div><div class="tabs">${tabs.map(([k,l])=>`<button class="${st.admin===k?"on":""}" data-admin="${k}">${l}</button>`).join("")}</div>${body}`;
+}
+
+// ---------- task drawer ----------
+function openTask(t,isNew){
+  const {project}=chainOf(t.project_id);const dom=domById(project.domain_id);
+  const e=effDeadline(project.id);
+  const ov=document.getElementById("overlay");
+  ov.innerHTML=`<div class="dim" data-close></div><aside class="drawer" aria-label="עריכת משימה"><div class="dh"><h2>${isNew?"משימה חדשה":"עריכת משימה"}</h2><small style="color:var(--muted)">${isNew?"":"#"+t.id}</small><div style="margin-inline-start:auto;display:flex;gap:6px">${isNew?"":`<button class="btn s" data-dup>שכפול</button>`}<button class="btn s" data-close aria-label="סגור">✕</button></div></div>
+  <div class="body">
+    <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600">כותרת<input id="fTitle" class="in" style="font-size:15px;font-weight:500" value="${esc(t.title)}"></label>
+    <div class="form" style="grid-template-columns:repeat(3,1fr)">
+      <label>לקוח<select id="fCust" class="in">${customers.map(c=>`<option value="${c.id}" ${c.id===dom.customer_id?"selected":""}>${c.name}</option>`).join("")}</select></label>
+      <label>סביבה<select id="fDom" class="in"></select></label>
+      <label>פרויקט<select id="fProj" class="in"></select></label></div>
+    <div id="fDl" style="font-size:12px;color:var(--muted)"></div>
+    <div class="form" style="grid-template-columns:1.2fr 1fr">
+      <label>אחראי<select id="fPerson" class="in">${people.concat([UNASSIGNED]).map(p=>`<option value="${p.id}" ${p.id===t.person_id?"selected":""}>${p.id===0?"— לא משובץ —":p.name}</option>`).join("")}</select></label>
+      <label>תאריך<input id="fDate" class="in" type="date" value="${t.date}"></label></div>
+    <div class="card panel" style="background:var(--bg)"><label style="display:flex;gap:8px;align-items:center;font-weight:600"><input type="checkbox" id="fAll" ${isSpan(t)?"checked":""}> יום מלא / מספר ימים</label>
+      <div id="timed" class="form" style="grid-template-columns:1fr 1fr"><label>שעת התחלה<input id="fStart" class="in" type="time" value="${hm(t.start_min||540)}"></label><label>משך (דקות)<input id="fDur" class="in" type="number" step="30" min="30" value="${t.duration_min||60}"></label></div>
+      <div id="span" class="form" style="grid-template-columns:120px 1fr"><label>ימי עבודה<input id="fDays" class="in" type="number" min="1" value="${isSpan(t)?workdaysBetween(t.date,spanEnd(t)):1}"></label><div id="fSpanSum" style="font-size:13px;color:var(--muted)"></div></div></div>
+    <div id="fWarn" style="display:flex;flex-direction:column;gap:8px"></div>
+    <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600">תיאור<textarea id="fDesc" class="in" rows="3">${esc(t.description||"")}</textarea></label>
+    <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600">אחוז ביצוע <span style="display:flex;gap:10px;align-items:center"><input id="fProg" type="range" min="0" max="100" step="5" value="${t.percent_done}" style="flex:1;accent-color:#00C875"><output id="fProgN" style="width:44px;font-size:14px;color:var(--fg)">${t.percent_done}%</output></span></label>
+  </div>
+  <div class="df"><button class="btn p" data-save>שמירה</button><button class="btn" data-close>ביטול</button>${isNew?"":`<button class="btn danger" style="margin-inline-start:auto" data-del>מחיקה</button>`}</div></aside>`;
+  const $=id=>document.getElementById(id);
+  const fillDom=()=>{const cid=+$("fCust").value;$("fDom").innerHTML=domains.filter(d=>d.customer_id===cid).map(d=>`<option value="${d.id}" ${d.id===dom.id?"selected":""}>${d.name}</option>`).join("");fillProj()};
+  const fillProj=()=>{const did=+$("fDom").value;$("fProj").innerHTML=projects.filter(p=>p.domain_id===did&&isActive(p)).map(p=>`<option value="${p.id}" ${p.id===project.id?"selected":""}>${p.name}</option>`).join("")||`<option value="">— אין פרויקט פעיל —</option>`;showDl()};
+  const showDl=()=>{const p=projById(+$("fProj").value);const e=p&&effDeadline(p.id);$("fDl").innerHTML=p?`<i class="sw" style="background:${p.color}"></i> ${bBadge(p)} <span class="badge">${p.category}</span> · ${e?`${e.own?"יעד":"יעד נגזר"} ${fmtIso(e.date)}`:"ללא יעד"} · זמן בנייה ${p.lead_days} יום${p.depends_on.length?" · תלוי ב: "+p.depends_on.map(i=>projById(i).name).join(", "):""} <button class="btn s" data-toast="תלות חדשה נוצרת כפרויקט בסביבה הזו בשמירה">+ תלות חדשה</button>`:"";warn()};
+  const warn=()=>{const d=$("fDate").value,all=$("fAll").checked;$("timed").style.display=all?"none":"";$("span").style.display=all?"":"none";
+    const n=Math.max(1,+$("fDays").value||1);const end=all?endFromDays(d,n):d;$("fSpanSum").textContent=all?`⇒ ${fmtDM(d)} – ${fmtDM(end)} · מדלג על שישי–שבת וחגים`:"";
+    const w=[];const g=parseIso(d).getDay();if(g===5||g===6)w.push(["warn","התאריך הוא סוף שבוע — הלוח מציג רק א׳–ה׳. אפשר לשמור, יתבקש אישור."]);
+    const h=holidayOn(d)||(all&&holidays.find(x=>x.from<=end&&x.to>=d));if(h)w.push(["hol",`הטווח כולל חג (${h.name}). מותר לשמור — רק אזהרה.`]);
+    const p=projById(+$("fProj").value);const e=p&&effDeadline(p.id);if(e&&end>e.date)w.push(["warn",`המשימה אחרי יעד הפרויקט (${fmtIso(e.date)}).`]);
+    if(!all){const s=$("fStart").value.split(":");const sm=+s[0]*60+ +s[1];const pid=+$("fPerson").value;const c=tasks.find(o=>o.id!==t.id&&!isSpan(o)&&o.person_id===pid&&pid!==0&&o.date===d&&sm<o.start_min+o.duration_min&&o.start_min<sm+ +$("fDur").value);if(c)w.push(["warn",`ל${personById(pid).name} יש משימה חופפת: ${c.title} ${hm(c.start_min)}–${hm(c.start_min+c.duration_min)}.`])}
+    $("fWarn").innerHTML=w.map(([k,m])=>`<div class="note ${k}">${m}</div>`).join("")};
+  fillDom();warn();
+  $("fCust").onchange=fillDom;$("fDom").onchange=fillProj;$("fProj").onchange=showDl;
+  for(const id of ["fDate","fAll","fDays","fStart","fDur","fPerson"])$(id).oninput=warn;
+  $("fProg").oninput=()=>$("fProgN").textContent=$("fProg").value+"%";
+  const read=()=>{const all=$("fAll").checked;const s=$("fStart").value.split(":");const d=$("fDate").value;
+    return {title:$("fTitle").value.trim()||"משימה",project_id:+$("fProj").value,person_id:+$("fPerson").value,date:d,all_day:all,end_date:all?endFromDays(d,Math.max(1,+$("fDays").value||1)):null,start_min:all?0:+s[0]*60+ +s[1],duration_min:all?0:+$("fDur").value,description:$("fDesc").value,percent_done:+$("fProg").value}};
+  ov.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>ov.innerHTML="");
+  ov.querySelector("[data-save]").onclick=()=>{if(!+$("fProj").value)return toast("בחרו פרויקט פעיל");Object.assign(t,read());if(isNew)tasks.push(t);ov.innerHTML="";render();toast(isNew?"המשימה נוצרה":"נשמר")};
+  const del=ov.querySelector("[data-del]");if(del)del.onclick=()=>{tasks=tasks.filter(x=>x!==t);ov.innerHTML="";render();toast("המשימה נמחקה")};
+  const dup=ov.querySelector("[data-dup]");if(dup)dup.onclick=()=>{const c={...t,...read(),id:nextId++};tasks.push(c);render();openTask(c,false);toast("שוכפל — ערכו את העותק")};
+  ov.querySelectorAll("[data-toast]").forEach(b=>b.onclick=()=>toast(b.dataset.toast));
+}
+function applyTemplate(pid){
+  const ov=document.getElementById("overlay");const p=projById(pid);
+  ov.innerHTML=`<div class="dim" data-close></div><aside class="drawer"><div class="dh"><h2>החל תבנית על ${esc(p.name)}</h2><button class="btn s" data-close style="margin-inline-start:auto" aria-label="סגור">✕</button></div>
+  <div class="body"><div class="form" style="grid-template-columns:1fr"><label>תבנית<select id="aTpl" class="in">${templates.map(t=>`<option value="${t.id}">${t.name} (${t.tasks.length} משימות)</option>`).join("")}</select></label>
+  <label>מתאריך<input id="aDate" class="in" type="date" value="${iso(st.anchor)}"></label><label>משעה<input id="aStart" class="in" type="time" value="09:00"></label>
+  <label>אחראי<select id="aPerson" class="in"><option value="0">— לא משובץ —</option>${people.map(x=>`<option value="${x.id}">${x.name}</option>`).join("")}</select></label></div>
+  <small style="color:var(--muted)">המשימות נוצרות ברצף, אחת אחרי השנייה, מהשעה שנבחרה.</small></div>
+  <div class="df"><button class="btn p" data-apply>צור משימות</button><button class="btn" data-close>ביטול</button></div></aside>`;
+  ov.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>ov.innerHTML="");
+  ov.querySelector("[data-apply]").onclick=()=>{const t=templates.find(x=>x.id===+aTpl.value);const s=aStart.value.split(":");let m=+s[0]*60+ +s[1];
+    for(const x of t.tasks){tasks.push({id:nextId++,project_id:pid,person_id:+aPerson.value,date:aDate.value,start_min:m,duration_min:x.duration_min,percent_done:0,title:x.title,description:`מתבנית "${t.name}"`});m+=x.duration_min}
+    ov.innerHTML="";render();toast(`${t.tasks.length} משימות נוצרו`)};
+}
+
+// ---------- events ----------
+function bind(){
+  const q=s=>document.querySelectorAll(s);
+  q("[data-side]").forEach(b=>b.onclick=()=>{st.sideOpen=!st.sideOpen;render()});
+  // gantt: top scrollbar mirrors the real one; ‹ › buttons and keyboard arrows step one month column (RTL: scrollLeft goes negative)
+  const gs=document.getElementById("gScroll"),gt=document.getElementById("gTop");
+  if(gs){const sync=()=>{document.getElementById("gTopInner").style.width=document.getElementById("gGrid").scrollWidth+"px"};sync();
+    let lock=false;gs.onscroll=()=>{if(lock)return;lock=true;gt.scrollLeft=gs.scrollLeft;lock=false};gt.onscroll=()=>{if(lock)return;lock=true;gs.scrollLeft=gt.scrollLeft;lock=false};
+    const shift=n=>{const m=st.gm+n*(st.gz==="month"?1:3);const d=new Date(st.gy,m,1);st.gy=d.getFullYear();st.gm=d.getMonth();render()};
+    q("[data-gshift]").forEach(b=>b.onclick=()=>shift(+b.dataset.gshift));
+    // RTL: ← (left) is forward in time, → (right) is back
+    document.onkeydown=e=>{if(e.target.matches("input,select,textarea")||!document.getElementById("gScroll"))return;if(e.key==="ArrowLeft")shift(1);else if(e.key==="ArrowRight")shift(-1);else return;e.preventDefault()}}
+  else document.onkeydown=null;
+  q("[data-go]").forEach(b=>b.onclick=()=>{const g=b.dataset.go;if(g==="admin"){st.level="admin";render()}else if(g==="gantt"){go("board",st.custId,st.domId);st.mode="gantt";render()}else go(g,b.dataset.cust?+b.dataset.cust:null,b.dataset.dom?+b.dataset.dom:null)});
+  q("[data-mode]").forEach(b=>b.onclick=()=>{st.mode=b.dataset.mode;render()});
+  q("[data-admin]").forEach(b=>b.onclick=()=>{st.admin=b.dataset.admin;render()});
+  q(".gfi").forEach(el=>el[el.tagName==="INPUT"?"oninput":"onchange"]=()=>{st.gf[el.dataset.gf]=el.value;const pos=el.selectionStart;render();if(el.tagName==="INPUT"){const n=document.querySelector('.gfi[data-gf="name"]');n.focus();n.setSelectionRange(pos,pos)}});
+  const gfc=document.querySelector("[data-gfclear]");if(gfc)gfc.onclick=()=>{st.gf={cust:"",dom:"",branch:"",cat:"",status:"",name:""};render()};
+  q("[data-step]").forEach(b=>b.onclick=()=>{const n=+b.dataset.step;if(st.mode==="gantt"){if(n)st.gy+=n;else{st.gy=new Date().getFullYear();st.gm=new Date().getMonth()}}else st.anchor=n?addD(st.anchor,7*n):weekStart(new Date());render()});
+  q("[data-gz]").forEach(b=>b.onclick=()=>{st.gz=b.dataset.gz;render()});
+  const jd=document.getElementById("jumpD");if(jd)jd.onchange=()=>{if(jd.value){st.anchor=weekStart(parseIso(jd.value));render()}};
+  const jy=document.getElementById("jumpY");if(jy)jy.onchange=()=>{if(jy.value){st.gy=+jy.value;st.gm=0}else{st.gy=new Date().getFullYear();st.gm=new Date().getMonth()}render()};
+  const je=document.getElementById("jumpE");if(je)je.onchange=()=>{st.gEndY=+je.value;render()};
+  q("[data-task]").forEach(b=>b.onclick=e=>{e.stopPropagation();openTask(tasks.find(t=>t.id===+b.dataset.task),false)});
+  q("[data-cell]").forEach(c=>c.onclick=()=>{const [pid,d]=c.dataset.cell.split("|");const pr=scopedProjects().find(isActive)||projects.find(isActive);openTask({id:nextId++,project_id:pr.id,person_id:+pid,date:d,start_min:540,duration_min:60,percent_done:0,title:"",description:""},true)});
+  q("[data-newtask]").forEach(b=>b.onclick=()=>{const pr=b.dataset.newtask?projById(+b.dataset.newtask):(scopedProjects().find(isActive)||projects.find(isActive));openTask({id:nextId++,project_id:pr.id,person_id:0,date:iso(st.anchor),start_min:540,duration_min:60,percent_done:0,title:"",description:""},true)});
+  q("[data-tpl]").forEach(b=>b.onclick=()=>applyTemplate(+b.dataset.tpl));
+  q("[data-close]").forEach(b=>b.onclick=()=>{const p=projById(+b.dataset.close);p.status=isActive(p)?"closed":"active";render();toast(isActive(p)?"הפרויקט נפתח מחדש":"הפרויקט נסגר (המשימות נשמרות)")});
+  q("[data-cycle]").forEach(b=>b.onclick=()=>{const t=tasks.find(x=>x.id===+b.dataset.cycle);t.percent_done=t.percent_done>=100?0:Math.min(100,t.percent_done+25);render()});
+  q("[data-proj]").forEach(b=>b.onclick=()=>{const p=projById(+b.dataset.proj);const d=domById(p.domain_id);st.custId=d.customer_id;st.domId=d.id;st.mode="table";st.search="";st.level="board";render();toast(`פותח את ${p.name} בטבלה`)});
+  q("[data-toast]").forEach(b=>b.onclick=()=>toast(b.dataset.toast));
+  q("[data-branch]").forEach(b=>b.onclick=()=>{st.branch=+b.dataset.branch;st.cat="";go("board",null,null)});
+  q("[data-cat]").forEach(b=>b.onclick=()=>{st.cat=b.dataset.cat;st.branch=0;go("board",null,null)});
+  const fb=document.getElementById("fBranch");if(fb)fb.onchange=()=>{st.branch=+fb.value;render()};
+  const fc=document.getElementById("fCat");if(fc)fc.onchange=()=>{st.cat=fc.value.replace(/^קטגוריה: /,"");render()};
+  const cf=document.querySelector("[data-clearf]");if(cf)cf.onclick=()=>{st.branch=0;st.cat="";render()};
+  const sc=document.getElementById("showClosed");if(sc)sc.onchange=()=>{st.showClosed=sc.checked;render()};
+  const sq=document.getElementById("q");if(sq)sq.oninput=()=>{st.search=sq.value;const pos=sq.selectionStart;render();const n=document.getElementById("q");n.focus();n.setSelectionRange(pos,pos)};
+  const ah=document.querySelector("[data-addhol]");if(ah)ah.onclick=()=>{const n=hName.value.trim(),f=hFrom.value,t=hTo.value||f;if(!n||!f)return toast("צריך שם ותאריך");if(t<f)return toast("תאריך סיום לפני התחלה");holidays.push({id:nextId++,name:n,from:f,to:t});render();toast("החג נוסף — הלוח מדלג עליו")};
+  q("[data-delhol]").forEach(b=>b.onclick=()=>{holidays=holidays.filter(h=>h.id!==+b.dataset.delhol);render()});
+  q("[data-delppl]").forEach(b=>b.onclick=()=>{const p=people.find(x=>x.id===+b.dataset.delppl);const n=tasks.filter(t=>t.person_id===p.id).length;
+    document.getElementById("reassign").innerHTML=`<div class="note warn" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">מחיקת ${p.name}: ${n?`יש ${n} משימות — העבר אל`:"אין משימות"} ${n?`<select id="rTo" class="in" style="width:160px;height:32px">${people.filter(x=>x!==p).map(x=>`<option value="${x.id}">${x.name}</option>`).join("")}<option value="0">לא משובץ</option></select>`:""}<button class="btn s danger" id="rGo">${n?"העבר ומחק":"מחק"}</button></div>`;
+    document.getElementById("rGo").onclick=()=>{const to=n?+document.getElementById("rTo").value:0;tasks.forEach(t=>{if(t.person_id===p.id)t.person_id=to});people.splice(people.indexOf(p),1);render();toast("העובד נמחק והמשימות הועברו")}});
+}
+render();
+</script>
+
+</body></html>
