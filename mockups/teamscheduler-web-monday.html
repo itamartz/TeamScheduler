@@ -162,6 +162,9 @@ textarea.in{height:auto;padding:8px 10px;resize:vertical}
 .ms.risk{border-color:#F5D90A}.ms.late{border-color:var(--stuck)}
 .caret{background:none;border:0;padding:0 6px 0 2px;color:var(--muted);font-size:12px}
 .side .seg{display:flex;margin:0 6px 4px}.side .seg button{flex:1;padding:6px 4px;font-size:12px}
+/* IDs overlay: yellow = entity id (T task, P project, C customer, E environment, TM team, U person), purple = UI area */
+.idb{font:600 10px/1.5 ui-monospace,Consolas,monospace;background:#FFE08A;color:#3A2E00;border-radius:3px;padding:0 4px;margin-inline-end:4px;direction:ltr;unicode-bidi:isolate;white-space:nowrap;align-self:flex-start}
+.idb.ui{background:#5B2A86;color:#fff}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 @media (max-width:700px){.side{width:100%;border-left:0;border-bottom:1px solid var(--line)}.side.closed{width:100%;flex-direction:row;padding:8px}.side.closed .logo{padding:0}.side .foot{margin-top:6px}}
 @media (prefers-reduced-motion:no-preference){.chip,.env{transition:transform .12s}.chip:hover{transform:translateY(-1px)}}
@@ -170,6 +173,7 @@ textarea.in{height:auto;padding:8px 10px;resize:vertical}
 <div class="app" id="app"></div>
 <div id="overlay"></div>
 <div id="toast" hidden class="toast"></div>
+<button id="idsBtn" class="btn s" style="position:fixed;bottom:12px;left:12px;z-index:30" title="הצג / הסתר מזהים לצורך משוב">מזהים</button>
 
 <script>
 // ---------- sample data (marked as demo in the UI) ----------
@@ -304,7 +308,8 @@ const statusOf=t=>taskLate(t)?["תקוע","var(--stuck)"]:pctOf(t)>=100?["בוצ
 })();
 
 // ---------- state ----------
-const st={level:"hub",custId:null,domId:null,mode:"week",anchor:weekStart(new Date()),gz:"month",gy:new Date().getFullYear(),gm:new Date().getMonth(),gEndY:2028,gf:{cust:"",dom:"",branch:"",cat:"",status:"",name:"",cbranch:""},showClosed:false,admin:"hol",search:"",branch:0,cat:"",sideOpen:true,sideView:"env",open:new Set(),hubMore:new Set()};
+const st={level:"hub",custId:null,domId:null,mode:"week",anchor:weekStart(new Date()),gz:"month",gy:new Date().getFullYear(),gm:new Date().getMonth(),gEndY:2028,gf:{cust:"",dom:"",branch:"",cat:"",status:"",name:"",cbranch:""},showClosed:false,admin:"hol",search:"",branch:0,cat:"",sideOpen:true,sideView:"env",open:new Set(),hubMore:new Set(),ids:true};
+try{if(localStorage.getItem("tsIds")==="0")st.ids=false}catch(e){}
 function scopedProjects(){return projects.filter(p=>(st.domId!=null?p.domain_id===st.domId:st.custId!=null?domById(p.domain_id).customer_id===st.custId:true)&&(!st.branch||p.branch===st.branch)&&(!st.cat||p.category===st.cat))}
 const filterBar=()=>`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px"><span style="color:var(--muted)">סינון:</span>
   <select id="fBranch" class="in" style="width:170px;height:34px" aria-label="צוות"><option value="0">כל הצוותים</option>${BRANCHES.map(b=>`<option value="${b.id}" ${st.branch===b.id?"selected":""}>צוות: ${b.name}</option>`).join("")}</select>
@@ -322,6 +327,17 @@ function render(){
   const app=document.getElementById("app");
   app.innerHTML=`<nav class="side ${st.sideOpen?"":"closed"}" aria-label="ניווט">${sidebar()}</nav><main class="main">${st.level==="admin"?adminView():st.level==="hub"?hubView():boardView()}</main>`;
   bind();
+  if(st.ids)markIds(app);
+  idsBtn.setAttribute("aria-pressed",st.ids);idsBtn.classList.toggle("p",st.ids);
+}
+// IDs overlay so feedback can point at "T412" / "UI:tabs"; entity ids come from the data, so they stay the same across reloads
+const ID_KINDS=[["task","T"],["proj","P"],["pn","P"],["dom","E"],["cust","C"],["branch","TM"],["pid","U"]];
+const UI_AREAS=[[".side","sidebar"],[".crumb","breadcrumb"],[".head","header"],[".tabs","tabs"],[".ccard","customer-card"],[".panel","panel"],[".ghead","project-header"],
+  [".card.scroll:has(>.tgrid)","task-table"],[".card.scroll:has(>.grid)","week-grid"],["#gScroll","gantt"],[".gbarnav","gantt-nav"],[".legend","legend"],[".drawer .dh","task-editor"]];
+function markIds(root){
+  root.querySelectorAll(ID_KINDS.map(([a])=>`[data-${a}]`).join(",")).forEach(el=>{const [a,p]=ID_KINDS.find(([a])=>el.dataset[a]!==undefined&&el.dataset[a]!=="");
+    el.insertAdjacentHTML("afterbegin",`<span class="idb">${p}${el.dataset[a]}</span>`)});
+  for(const [sel,name] of UI_AREAS)root.querySelectorAll(sel).forEach(el=>el.insertAdjacentHTML("afterbegin",`<span class="idb ui">UI:${name}</span>`));
 }
 function sidebar(){
   if(!st.sideOpen){
@@ -397,7 +413,7 @@ function weekView(){
   const body=rows.map(p=>{
     const wk=ds.flatMap(d=>tasksFor(p.id,d)).filter((t,i,a)=>a.indexOf(t)===i);
     const hrs=wk.filter(t=>!isSpan(t)).reduce((s,t)=>s+t.duration_min,0)/60;
-    return `<div class="who"><span style="display:flex;gap:8px;align-items:center"><span class="avatar" style="background:${p.color}">${ini(p.name)}</span>${p.name}</span><small>${hrs} שעות · ${wk.length} משימות</small></div>`+
+    return `<div class="who" data-pid="${p.id}"><span style="display:flex;gap:8px;align-items:center"><span class="avatar" style="background:${p.color}">${ini(p.name)}</span>${p.name}</span><small>${hrs} שעות · ${wk.length} משימות</small></div>`+
       ds.map(d=>{const h=holidayOn(d);const list=tasksFor(p.id,d).map(t=>{if(isSpan(t))t._n=workdaysBetween(t.date,d);return chip(t)});
         return `<div class="cell ${d===TODAY?"today":""} ${h?"hol":""}" data-cell="${p.id}|${d}">${list.join("")||(h?`<small style="color:var(--hol-fg);text-align:center">חג · לא נספר כיום עבודה</small>`:"")}</div>`}).join("");
   }).join("");
@@ -412,7 +428,7 @@ function peopleView(){
     const list=ds.flatMap(d=>tasksFor(p.id,d).map(t=>({t,d}))).filter((x,i,a)=>a.findIndex(y=>y.t===x.t)===i);
     if(!list.length&&p.id===0)return "";
     const hrs=list.filter(x=>!isSpan(x.t)).reduce((s,x)=>s+x.t.duration_min,0)/60;
-    return `<section class="card panel"><h2 style="display:flex;gap:8px;align-items:center"><span class="avatar" style="background:${p.color}">${ini(p.name)}</span>${p.name}<small style="margin-inline-start:auto;color:var(--muted);font-weight:400">${hrs} שעות השבוע</small></h2>
+    return `<section class="card panel"><h2 data-pid="${p.id}" style="display:flex;gap:8px;align-items:center"><span class="avatar" style="background:${p.color}">${ini(p.name)}</span>${p.name}<small style="margin-inline-start:auto;color:var(--muted);font-weight:400">${hrs} שעות השבוע</small></h2>
     ${list.length?list.map(({t,d})=>{const {project}=chainOf(t.project_id);const [s,c]=statusOf(t);return `<button class="chip" data-task="${t.id}" style="--c:${project.color.startsWith("linear")?"#8a8378":project.color}"><span class="row"><b>${DOW[parseIso(t.date).getDay()]} ${fmtDM(t.date)} · ${isSpan(t)?"כל היום עד "+fmtDM(spanEnd(t)):hm(t.start_min)}</b><span class="tag" style="background:${c}">${s}</span></span><span>${esc(project.name)} · ${esc(t.title)}</span></button>`}).join(""):`<div class="demo">אין משימות השבוע</div>`}</section>`}).join("")}</div>`;
 }
 
@@ -435,7 +451,7 @@ function tableView(){
     const avg=rows.length?Math.round(rows.reduce((s,t)=>s+t.percent_done,0)/rows.length):0;
     const cnt={};rows.forEach(t=>{const [s,c]=statusOf(t);cnt[c]=(cnt[c]||0)+1});
     const c=p.color.startsWith("linear")?"#8a8378":p.color;
-    return `<section class="group" style="--c:${isActive(p)?c:"#a8a091"}"><div class="ghead"><h2>${esc(p.name)}${isActive(p)?"":" (סגור)"}</h2>${bBadge(p)}<span class="badge">${p.category}</span>
+    return `<section class="group" style="--c:${isActive(p)?c:"#a8a091"}"><div class="ghead"><h2 data-pn="${p.id}">${esc(p.name)}${isActive(p)?"":" (סגור)"}</h2>${bBadge(p)}<span class="badge">${p.category}</span>
       ${e?`<span class="badge ${overdue?"red":late?"org":""}" ${e.own?"":"style=\"font-style:italic\""}>${e.own?"יעד":"יעד נגזר"} ${fmtIso(e.date)}${e.via?" · נדרש ל־"+esc(e.via.name):""}${overdue?" · עבר היעד":late?" · משימות אחרי היעד":""}</span>`:""}
       <span style="font-size:12px;color:var(--muted)">זמן בנייה ${p.lead_days} יום${deps.length?" · תלוי ב: "+deps.map(d=>esc(d.name)).join(", "):""}</span>
       ${missing.length?`<span class="badge hol">תלות חסרה בסביבה: ${missing.map(d=>esc(d.name)).join(", ")}</span>`:""}
@@ -500,7 +516,7 @@ function ganttView(){
       const a=pos(parseIso(r.from)),b=pos(addD(parseIso(r.to),1));const avg=Math.round(r.p.reduce((x,y)=>x+y,0)/r.p.length);
       const ms=p.milestones.filter(m=>m.date>=lo&&m.date<hi);
       return `<div class="fz" style="right:${FZ[0]}px">${bBadge(p)}</div><div class="fz" style="right:${FZ[1]}px">${customer.name}</div><div class="fz" style="right:${FZ[2]}px"><span class="status" style="background:${c}">${s}</span></div><div class="fz" style="right:${FZ[3]}px;font-size:12px">${esc(p.cbranch)}</div>
-      <div class="fz" style="right:${FZ[4]}px;border-left:2px solid var(--fg);flex-direction:column;align-items:flex-start;font-weight:600">${esc(p.name)}${e?`<small style="font-weight:400;color:var(--muted);${e.own?"":"font-style:italic"}">${e.own?"יעד":"יעד נגזר"} ${fmtDM(e.date)}${e.via?" · נדרש ל־"+esc(e.via.name):""}</small>`:""}</div>
+      <div class="fz" data-pn="${p.id}" style="right:${FZ[4]}px;border-left:2px solid var(--fg);flex-direction:column;align-items:flex-start;font-weight:600">${esc(p.name)}${e?`<small style="font-weight:400;color:var(--muted);${e.own?"":"font-style:italic"}">${e.own?"יעד":"יעד נגזר"} ${fmtDM(e.date)}${e.via?" · נדרש ל־"+esc(e.via.name):""}</small>`:""}</div>
       <div style="font-size:12px">${p.category}</div><div><span class="tag" style="background:${domain.color}">${domain.name}</span></div><div>${personById(p.engineer).name}</div><div>${personById(p.lead).name}</div><div style="font-size:12px">${p.integ.map(i=>personById(i).name).join(" + ")}</div><div style="font-size:12px">${esc(p.focus)}</div>
       <div class="tl" style="height:${44+30*ms.length}px">${lines}${ms.map((m,i)=>`<span class="ms ${m.state}" style="right:${pos(parseIso(m.date))}%;top:${40+30*i}px" title="${esc(m.title)} · ${fmtIso(m.date)}">${esc(m.title)}</span>`).join("")}<button class="gbar" data-proj="${p.id}" style="right:${a}%;width:${Math.max(b-a,.6)}%;background:${isActive(p)?p.color:"#a8a091"}" title="${esc(p.name)} · ${fmtIso(r.from)} – ${fmtIso(r.to)}">${avg}% · ${fmtDM(r.from)} – ${fmtDM(r.to)}</button>${e&&e.date>=lo&&e.date<hi?`<i class="gdl ${over?"over":""}" style="right:${pos(parseIso(e.date))}%" title="יעד ${fmtIso(e.date)}"></i>`:""}</div>`}).join("")}
   </div></div>
@@ -601,6 +617,7 @@ function openTask(t,isNew){
   const dup=ov.querySelector("[data-dup]");if(dup)dup.onclick=()=>{const c={...t,...read(),id:nextId++};tasks.push(c);render();openTask(c,false);toast("שוכפל — ערכו את העותק")};
   const sub=ov.querySelector("[data-sub]");if(sub)sub.onclick=()=>{st.open.add(t.id);openTask({id:nextId++,parent_id:t.id,project_id:t.project_id,person_id:t.person_id,date:t.date,start_min:t.start_min||540,duration_min:60,percent_done:0,title:"",description:""},true)};
   ov.querySelectorAll("[data-toast]").forEach(b=>b.onclick=()=>toast(b.dataset.toast));
+  if(st.ids)markIds(ov);
 }
 function applyTemplate(pid){
   const ov=document.getElementById("overlay");const p=projById(pid);
@@ -663,6 +680,7 @@ function bind(){
     document.getElementById("reassign").innerHTML=`<div class="note warn" style="display:flex;flex-wrap:wrap;gap:8px;align-items:center">מחיקת ${p.name}: ${n?`יש ${n} משימות — העבר אל`:"אין משימות"} ${n?`<select id="rTo" class="in" style="width:160px;height:32px">${people.filter(x=>x!==p).map(x=>`<option value="${x.id}">${x.name}</option>`).join("")}<option value="0">לא משובץ</option></select>`:""}<button class="btn s danger" id="rGo">${n?"העבר ומחק":"מחק"}</button></div>`;
     document.getElementById("rGo").onclick=()=>{const to=n?+document.getElementById("rTo").value:0;tasks.forEach(t=>{if(t.person_id===p.id)t.person_id=to});people.splice(people.indexOf(p),1);render();toast("העובד נמחק והמשימות הועברו")}});
 }
+idsBtn.onclick=()=>{st.ids=!st.ids;try{localStorage.setItem("tsIds",st.ids?"1":"0")}catch(e){}render()};
 render();
 </script>
 
