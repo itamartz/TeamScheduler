@@ -102,7 +102,7 @@ button{cursor:pointer}
 .bar i{display:block;height:100%;background:var(--done)}
 .battery{display:flex;width:100%;height:16px;border-radius:3px;overflow:hidden}
 /* gantt */
-.ggrid{display:grid;grid-template-columns:100px 80px 90px 80px 140px 180px repeat(var(--n),minmax(90px,1fr));min-width:1180px;font-size:13px}
+.ggrid{display:grid;grid-template-columns:90px 80px 120px 90px 170px 90px 80px 90px 90px 110px 170px repeat(var(--n),minmax(90px,1fr));min-width:1810px;font-size:13px}
 .ggrid>div{border-bottom:1px solid var(--line);border-left:1px solid var(--line);padding:8px 10px;display:flex;align-items:center}
 .ggrid .h{background:var(--bg);font-weight:600;border-bottom:2px solid var(--fg)}
 .ggrid .q{justify-content:center;font-weight:700;border-bottom:1px solid var(--line);unicode-bidi:plaintext}
@@ -157,6 +157,11 @@ textarea.in{height:auto;padding:8px 10px;resize:vertical}
 .avatar{width:24px;height:24px;border-radius:50%;color:#fff;display:inline-flex;align-items:center;justify-content:center;font-size:11px;flex:none}
 .toast{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--fg);color:var(--bg);padding:10px 18px;border-radius:8px;font-size:13px;z-index:20;box-shadow:0 6px 20px rgba(0,0,0,.2)}
 .demo{font-size:12px;color:var(--muted);padding:6px 10px;border:1px dashed var(--line2);border-radius:4px}
+/* milestone box (Excel look): border = state */
+.ms{position:absolute;height:24px;border-radius:5px;background:#1F5F7A;color:#fff;font-size:11px;display:flex;align-items:center;padding:0 8px;white-space:nowrap;border:3px solid var(--done);transform:translateX(50%)}
+.ms.risk{border-color:#F5D90A}.ms.late{border-color:var(--stuck)}
+.caret{background:none;border:0;padding:0 6px 0 2px;color:var(--muted);font-size:12px}
+.side .seg{display:flex;margin:0 6px 4px}.side .seg button{flex:1;padding:6px 4px;font-size:12px}
 :focus-visible{outline:2px solid var(--accent);outline-offset:1px}
 @media (max-width:700px){.side{width:100%;border-left:0;border-bottom:1px solid var(--line)}.side.closed{width:100%;flex-direction:row;padding:8px}.side.closed .logo{padding:0}.side .foot{margin-top:6px}}
 @media (prefers-reduced-motion:no-preference){.chip,.env{transition:transform .12s}.chip:hover{transform:translateY(-1px)}}
@@ -172,7 +177,7 @@ const customers=[{id:1,name:"היחידה",color:"#225091"},{id:2,name:"צ.צ",c
 const domains=[{id:1,customer_id:1,name:"SADAB",color:"#579BFC"},{id:2,customer_id:1,name:"PROD",color:"#E2445C"},{id:3,customer_id:1,name:"מאיה",color:"#00C875"},
   {id:4,customer_id:2,name:"אדומה",color:"linear-gradient(135deg,#A25DDC,#FDAB3D)"},{id:5,customer_id:2,name:"PROD",color:"#0086C0"},{id:6,customer_id:3,name:"SADAB",color:"#225091"}];
 // branch = the department that owns the project (CEO view); category = kind of work
-const BRANCHES=[{id:1,name:"דיגיטל",color:"#0073EA"},{id:2,name:"Seal",color:"#7C4A2D"},{id:3,name:"תשתיות",color:"#00855F"}];
+const BRANCHES=[{id:1,name:"DEVOPS",color:"#0073EA"},{id:2,name:"תקשורת",color:"#7C4A2D"},{id:3,name:"תשתיות",color:"#00855F"}];
 const CATEGORIES=["שדרוג","פיתוח","אבטחה","תפעול"];
 const projects=[
   {id:1,domain_id:1,name:"שדרוג מסדי נתונים",color:"#0086C0",status:"active",deadline:"2026-11-30",lead_days:14,depends_on:[4],branch:3,category:"שדרוג"},
@@ -248,7 +253,10 @@ function effDeadline(id,seen=new Set()){
 }
 const taskLate=t=>{const e=effDeadline(t.project_id);return !!(e&&(isSpan(t)?spanEnd(t):t.date)>e.date)};
 const hasConflict=t=>t.person_id!==0&&!isSpan(t)&&tasks.some(o=>o.id!==t.id&&!isSpan(o)&&o.person_id===t.person_id&&o.date===t.date&&t.start_min<o.start_min+o.duration_min&&o.start_min<t.start_min+t.duration_min);
-const statusOf=t=>taskLate(t)?["תקוע","var(--stuck)"]:t.percent_done>=100?["בוצע","var(--done)"]:t.percent_done>0?["בעבודה","var(--work)"]:["מתוכנן","var(--plan)"];
+// sub-tasks: a task with parent_id belongs to that task; the parent's progress is the average of its sub-tasks
+const subsOf=id=>tasks.filter(x=>x.parent_id===id);
+function pctOf(t){const s=subsOf(t.id);return s.length?Math.round(s.reduce((a,x)=>a+x.percent_done,0)/s.length):t.percent_done}
+const statusOf=t=>taskLate(t)?["תקוע","var(--stuck)"]:pctOf(t)>=100?["בוצע","var(--done)"]:pctOf(t)>0?["בעבודה","var(--work)"]:["מתוכנן","var(--plan)"];
 
 // ---------- generated demo data: 25 people, ~20 active projects, 150 tasks (seeded, so it's the same every load) ----------
 (function seed(){
@@ -258,7 +266,7 @@ const statusOf=t=>taskLate(t)?["תקוע","var(--stuck)"]:t.percent_done>=100?["
   const last=["לוי","פרץ","ביטון","אברהם","פרידמן","שפירא","דהן","מלכה","אזולאי","חדד","גבאי","כץ"];
   const cols=["#0086C0","#A25DDC","#00855F","#E2445C","#FDAB3D","#225091","#7C4A2D","#0073EA","#2E7D32","#B03A2E"];
   for(let i=0;people.length<25;i++)people.push({id:10+i,name:`${first[i%first.length]} ${pick(last)}`,color:pick(cols),user:"",branch:1+i%3});
-  const pnames=["מיגרציה לענן פרטי","שדרוג Exchange","פורטל עובדים","מערכת כרטוס","חיזוק אבטחת רשת","אוטומציית גיבויים","שדרוג VMware","מערכת דוחות","אפליקציית שטח","ניהול זהויות","שדרוג רשת ליבה","מוקד שירות"];
+  const pnames=["מיגרציה לענן פרטי","שדרוג Exchange","פורטל עובדים","מערכת כרטוס","חיזוק אבטחת רשת","אוטומציית גיבויים","שדרוג VMware","מערכת דוחות","אפליקציית שטח","ניהול זהויות","שדרוג רשת ליבה","מוקד שירות","OCP","טלפוניה","שדרוג SIEM","PAM","מעבר ל-Kubernetes","ניהול תצורה","שדרוג Wi-Fi","DLP","מערכת NAC","CI/CD","ארכיון דוא\"ל","מערכת תורים"];
   pnames.forEach((n,i)=>{const d=pick(domains);const dl=rnd()<.6?iso(addD(new Date(),Math.floor(rnd()*700)+30)):null;
     projects.push({id:20+i,domain_id:d.id,name:n,color:pick(cols),status:"active",deadline:dl,lead_days:pick([7,10,14,21]),depends_on:[],branch:1+i%3,category:pick(CATEGORIES)})});
   const act=projects.filter(isActive);
@@ -285,13 +293,21 @@ const statusOf=t=>taskLate(t)?["תקוע","var(--stuck)"]:t.percent_done>=100?["
   for(const o of wk){if(seen.size>=24)break;const k=o.person_id+"|"+o.date;if(seen.has(k)||(seen.size<6&&o.date>we))continue;seen.add(k);
     const p=pick(act.filter(x=>x.id!==o.project_id));
     tasks.push({id:nextId++,project_id:p.id,person_id:o.person_id,date:o.date,start_min:o.start_min+30,duration_min:pick([60,90,120]),percent_done:0,title:pick(["פגישת סטטוס","תמיכה דחופה","תיאום עם הלקוח"]),description:"נוצר כדי להדגים חפיפה"})}
+  // Excel-gantt fields per project: customer branch, engineer, team lead, integration, next-month focus, milestones
+  const CBR=["ענן","הנדסת רשת","מערכות מידע","סייבר"],MS=["תכן מערכת","שליחה ללקוח","התקנה באתר","הדרכה","מסירה","בדיקות קבלה"],FOCUS=["לקלוח ללקוח תכן","הכשרה עד סוף נובמבר","סגירת פערים מול הלקוח","התקנת סביבת בדיקות","אישור תכן מול הלקוח"];
+  for(const p of projects){p.cbranch=pick(CBR);p.engineer=pick(people).id;p.lead=pick(people).id;p.integ=[...new Set([pick(people).id,pick(people).id])];p.focus=pick(FOCUS);
+    p.milestones=[...Array(1+Math.floor(rnd()*3))].map(()=>{const d=iso(addD(t0,Math.floor(rnd()*300)-30));return {title:pick(MS),date:d,state:d<TODAY?pick(["ok","ok","late"]):pick(["ok","ok","risk","late"])}}).sort((a,b)=>a.date.localeCompare(b.date))}
+  // sub-tasks: task 412 always has some (so the demo shows them), plus ~15% of other timed tasks
+  const SUBS=["איסוף דרישות","כתיבת מסמך","סקירה","אישור לקוח","הטמעה","בדיקה"];
+  const parents=tasks.filter(t=>t.id===412||(!isSpan(t)&&t.person_id>0&&rnd()<.15));
+  for(const p of parents){let d=p.date;for(let i=0,n=2+Math.floor(rnd()*3);i<n;i++){tasks.push({id:nextId++,parent_id:p.id,project_id:p.project_id,person_id:pick(people).id,date:d,start_min:480+60*i,duration_min:60,percent_done:d<TODAY?100:pick([0,0,25,50]),title:pick(SUBS),description:""});d=nextWorkday(d)}}
 })();
 
 // ---------- state ----------
-const st={level:"hub",custId:null,domId:null,mode:"week",anchor:weekStart(new Date()),gz:"month",gy:new Date().getFullYear(),gm:new Date().getMonth(),gEndY:2028,gf:{cust:"",dom:"",branch:"",cat:"",status:"",name:""},showClosed:false,admin:"hol",search:"",branch:0,cat:"",sideOpen:true};
+const st={level:"hub",custId:null,domId:null,mode:"week",anchor:weekStart(new Date()),gz:"month",gy:new Date().getFullYear(),gm:new Date().getMonth(),gEndY:2028,gf:{cust:"",dom:"",branch:"",cat:"",status:"",name:"",cbranch:""},showClosed:false,admin:"hol",search:"",branch:0,cat:"",sideOpen:true,sideView:"env",open:new Set(),hubMore:new Set()};
 function scopedProjects(){return projects.filter(p=>(st.domId!=null?p.domain_id===st.domId:st.custId!=null?domById(p.domain_id).customer_id===st.custId:true)&&(!st.branch||p.branch===st.branch)&&(!st.cat||p.category===st.cat))}
 const filterBar=()=>`<div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px"><span style="color:var(--muted)">סינון:</span>
-  <select id="fBranch" class="in" style="width:170px;height:34px" aria-label="מחלקה"><option value="0">כל המחלקות</option>${BRANCHES.map(b=>`<option value="${b.id}" ${st.branch===b.id?"selected":""}>מחלקה: ${b.name}</option>`).join("")}</select>
+  <select id="fBranch" class="in" style="width:170px;height:34px" aria-label="צוות"><option value="0">כל הצוותים</option>${BRANCHES.map(b=>`<option value="${b.id}" ${st.branch===b.id?"selected":""}>צוות: ${b.name}</option>`).join("")}</select>
   <select id="fCat" class="in" style="width:170px;height:34px" aria-label="קטגוריה"><option value="">כל הקטגוריות</option>${CATEGORIES.map(c=>`<option ${st.cat===c?"selected":""}>קטגוריה: ${c}</option>`).join("")}</select>
   ${st.branch||st.cat?`<button class="btn s" data-clearf>נקה</button>`:""}<span style="color:var(--muted)">${scopedProjects().filter(isActive).length} פרויקטים פעילים בתצוגה</span></div>`;
 const bBadge=p=>{const b=branchOf(p);return `<span class="tag" style="background:${b.color};font-size:11px;padding:2px 8px">${b.name}</span>`};
@@ -326,11 +342,15 @@ function sidebar(){
       <div class="foot" style="padding-top:10px;display:flex;justify-content:center"><span class="avatar" style="background:#7C4A2D" title="נירית · מנהלת התוכנית">נ</span></div>`;
   }
   const cust=customers.map(c=>`<button class="nav ${st.level==="board"&&st.custId===c.id&&st.domId==null?"on":""}" data-go="board" data-cust="${c.id}"><i class="sw" style="background:${c.color}"></i>${c.name}</button>`+
-    (st.custId===c.id?domains.filter(d=>d.customer_id===c.id).map(d=>`<button class="nav sub ${st.domId===d.id?"on":""}" data-go="board" data-cust="${c.id}" data-dom="${d.id}"><i class="sw r" style="background:${d.color}"></i>${d.name}</button>`).join(""):"")).join("");
+    (st.custId===c.id&&st.sideView==="proj"?projects.filter(p=>isActive(p)&&domById(p.domain_id).customer_id===c.id).map(p=>`<button class="nav sub" data-proj="${p.id}"><i class="sw" style="background:${p.color}"></i>${esc(p.name)}</button>`).join(""):st.custId===c.id?domains.filter(d=>d.customer_id===c.id).map(d=>`<button class="nav sub ${st.domId===d.id?"on":""}" data-go="board" data-cust="${c.id}" data-dom="${d.id}"><i class="sw r" style="background:${d.color}"></i>${d.name}</button>`).join(""):"")).join("");
   return `<div class="logo"><i>T</i>TeamScheduler<button class="tgl" data-side title="כווץ ניווט" aria-label="כווץ ניווט">›</button></div>
   <button class="nav ${st.level==="hub"?"on":""}" data-go="hub">הבית · כל הלקוחות</button>
   <button class="nav ${st.level==="board"&&st.custId==null?"on":""}" data-go="board">לוח כל הצוות</button>
-  <div class="sec">לקוחות (Workspaces)</div>${cust}
+  <div class="sec">תצוגה</div><div class="seg" role="group" aria-label="תצוגת ניווט">${[["env","סביבות"],["proj","פרויקטים"],["team","צוותים"]].map(([k,l])=>`<button class="${st.sideView===k?"on":""}" data-sview="${k}" aria-pressed="${st.sideView===k}">${l}</button>`).join("")}</div>
+  ${st.sideView==="team"?`<div class="sec">צוותים</div>`+BRANCHES.map(b=>{const prs=projects.filter(p=>p.branch===b.id&&isActive(p));
+    return `<button class="nav ${st.level==="board"&&st.branch===b.id?"on":""}" data-branch="${b.id}"><i class="sw" style="background:${b.color}"></i>${b.name}<small style="margin-inline-start:auto;color:var(--muted)">${prs.length}</small></button>`+
+      (st.branch===b.id?prs.map(p=>`<button class="nav sub" data-proj="${p.id}"><i class="sw" style="background:${p.color}"></i>${esc(p.name)}</button>`).join(""):"")}).join("")
+    :`<div class="sec">לקוחות</div>${cust}`}
   <div class="sec">ניהול</div>
   <button class="nav ${st.level==="admin"?"on":""}" data-go="admin">חגים · תבניות · אנשים · הרשאות</button>
   <div class="foot"><div class="demo">נתוני דוגמה · מוקאפ אינטראקטיבי</div><div style="padding:8px 10px;display:flex;gap:8px;align-items:center"><span class="avatar" style="background:#7C4A2D">נ</span>נירית · מנהלת התוכנית</div></div>`;
@@ -405,7 +425,9 @@ function tableView(){
     <label style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted)"><input type="checkbox" id="showClosed" ${st.showClosed?"checked":""}> הצג פרויקטים סגורים (${closedN})</label>
     <button class="btn s" style="margin-inline-start:auto" data-toast="יצירת פרויקט: שם, סביבה, צבע, יעד, זמן בנייה, תלויות">+ פרויקט</button></div>`+
   prs.map(p=>{
-    const rows=tasks.filter(t=>t.project_id===p.id&&(!q||t.title.includes(q))).sort((a,b)=>a.date.localeCompare(b.date));
+    const byDate=(a,b)=>a.date.localeCompare(b.date);
+    const top=tasks.filter(t=>t.project_id===p.id&&!t.parent_id&&(!q||t.title.includes(q)||subsOf(t.id).some(s=>s.title.includes(q)))).sort(byDate);
+    const rows=top.flatMap(t=>[t,...(st.open.has(t.id)?subsOf(t.id).sort(byDate):[])]);
     const e=effDeadline(p.id);const overdue=isActive(p)&&e&&e.date<TODAY;const late=!overdue&&e&&rows.some(taskLate);
     const deps=p.depends_on.map(id=>projById(id));
     const missing=deps.filter(d=>!projects.some(x=>x.domain_id===p.domain_id&&x.name===d.name));
@@ -421,20 +443,20 @@ function tableView(){
       <div class="acts"><button class="btn s" data-newtask="${p.id}">+ משימה</button><button class="btn s" data-tpl="${p.id}">החל תבנית</button><button class="btn s" data-toast="העתקה לסביבה אחרת של אותו לקוח, כולל שרשרת התלויות">העתק לסביבה…</button><button class="btn s" data-close="${p.id}">${isActive(p)?"סגור פרויקט":"פתח מחדש"}</button></div></div>
     <div class="card scroll"><div class="tgrid" style="--n:${rows.length+2}"><div class="stripe"></div>
       <div class="th"><input type="checkbox" aria-label="בחר הכל"></div><div class="th" style="justify-content:flex-start">משימה</div><div class="th">אחראי</div><div class="th">תאריך</div><div class="th">שעה / משך</div><div class="th">סטטוס</div><div class="th">התקדמות</div>
-      ${rows.map(t=>{const [s,col]=statusOf(t);const who=personById(t.person_id);return `<div class="c"><input type="checkbox" aria-label="בחר"></div>
-        <div class="name" data-task="${t.id}"><span>${esc(t.title)} ${isSpan(t)?`<span class="badge">יום מלא · ${workdaysBetween(t.date,spanEnd(t))} ימי עבודה</span>`:""}${holidayOn(t.date)?`<span class="badge hol">חג</span>`:""}</span>${t.description?`<small>${esc(t.description)}</small>`:""}</div>
+      ${rows.map(t=>{const [s,col]=statusOf(t);const who=personById(t.person_id);const subs=subsOf(t.id);return `<div class="c"><input type="checkbox" aria-label="בחר"></div>
+        <div class="name" data-task="${t.id}" ${t.parent_id?'style="padding-inline-start:30px;background:var(--bg)"':""}><span>${subs.length?`<button class="caret" data-open="${t.id}" aria-label="תתי-משימות" aria-expanded="${st.open.has(t.id)}">${st.open.has(t.id)?"▾":"◂"}</button>`:""}${t.parent_id?"↳ ":""}${esc(t.title)} ${subs.length?`<span class="badge">${subs.length} תתי-משימות</span>`:""}${isSpan(t)?`<span class="badge">יום מלא · ${workdaysBetween(t.date,spanEnd(t))} ימי עבודה</span>`:""}${holidayOn(t.date)?`<span class="badge hol">חג</span>`:""}</span>${t.description?`<small>${esc(t.description)}</small>`:""}</div>
         <div class="c" ${who.id===0?'style="color:var(--muted);font-style:italic"':""}><span class="avatar" style="background:${who.color}">${ini(who.name)}</span>${who.name}</div>
         <div class="c" style="font-variant-numeric:tabular-nums">${isSpan(t)?fmtDM(t.date)+" – "+fmtDM(spanEnd(t)):DOW[parseIso(t.date).getDay()]+" "+fmtDM(t.date)}</div>
         <div class="c">${isSpan(t)?"כל היום":hm(t.start_min)+" · "+t.duration_min/60+" ש׳"}</div>
         <div class="st" style="background:${col}" data-cycle="${t.id}" title="לחיצה מקדמת ביצוע">${s}</div>
-        <div><span class="bar"><i style="width:${t.percent_done}%"></i></span><span style="width:34px;font-size:12px;text-align:left">${t.percent_done}%</span></div>`}).join("")}
-      <div class="ft"></div><div class="ft" style="grid-column:span 2">${rows.length} משימות · ${rows.filter(t=>!isSpan(t)).reduce((s,t)=>s+t.duration_min,0)/60} שעות · ${rows.filter(t=>t.person_id===0).length} לא משובצות</div><div class="ft c">${rows.length?fmtDM(rows[0].date)+" – "+fmtDM(rows[rows.length-1].date):"—"}</div><div class="ft"></div>
+        <div><span class="bar"><i style="width:${pctOf(t)}%"></i></span><span style="width:34px;font-size:12px;text-align:left">${pctOf(t)}%</span></div>`}).join("")}
+      <div class="ft"></div><div class="ft" style="grid-column:span 2">${rows.length} משימות · ${rows.filter(t=>!isSpan(t)).reduce((s,t)=>s+t.duration_min,0)/60} שעות · ${rows.filter(t=>t.person_id===0).length} לא משובצות</div><div class="ft c">${top.length?fmtDM(top[0].date)+" – "+fmtDM(top[top.length-1].date):"—"}</div><div class="ft"></div>
       <div class="ft"><span class="battery">${Object.entries(cnt).map(([c,n])=>`<i style="width:${n/rows.length*100}%;background:${c}"></i>`).join("")}</span></div><div class="ft"><span class="bar"><i style="width:${avg}%"></i></span><span style="width:34px;font-size:12px;text-align:left">${avg}%</span></div></div></div></section>`;
   }).join("")||`<div class="demo">אין פרויקטים בטווח</div>`;
 }
 
 // ---------- gantt ----------
-const FZ=[0,100,180,270,350,490];   // sticky offsets of the 6 fixed gantt columns (100,80,90,80,140,180 px)
+const FZ=[0,90,170,290,380];   // sticky offsets of the 5 frozen gantt columns (90,80,120,90,170 px); the 6 detail columns after them scroll
 // the gantt window: from month st.gm of year st.gy up to Dec of st.gEndY (default: today .. 2028); slides by period, not by pixel
 function ganttPeriods(){
   const per=[],end=new Date(st.gEndY,11,1);
@@ -453,14 +475,14 @@ function ganttView(){
   const stat=p=>{const e=effDeadline(p.id);return !isActive(p)?"closed":e&&e.date<TODAY?"over":"ok"};
   const rows=scopedProjects().filter(p=>st.showClosed||isActive(p)).map(p=>({p,r:range.get(p.id)})).filter(x=>{if(!x.r||x.r.to<lo||x.r.from>=hi){skip++;return false}return true})
     .filter(({p,r})=>{const {domain,customer}=chainOf(p.id);const e=effDeadline(p.id);const s=stat(p)==="ok"&&e&&r.to>e.date?"late":stat(p);
-      return (!f.cust||customer.id===+f.cust)&&(!f.dom||domain.name===f.dom)&&(!f.branch||p.branch===+f.branch)&&(!f.cat||p.category===f.cat)&&(!f.status||s===f.status)&&(!f.name||p.name.includes(f.name))});
+      return (!f.cust||customer.id===+f.cust)&&(!f.dom||domain.name===f.dom)&&(!f.branch||p.branch===+f.branch)&&(!f.cat||p.category===f.cat)&&(!f.cbranch||p.cbranch===f.cbranch)&&(!f.status||s===f.status)&&(!f.name||p.name.includes(f.name))});
   const fsel=(k,opts,label)=>`<select class="in gfi" data-gf="${k}" aria-label="סינון ${label}" style="height:28px;padding:0 4px;font-size:12px"><option value="">${label}: הכל</option>${opts.map(([v,l])=>`<option value="${v}" ${String(f[k])===String(v)?"selected":""}>${l}</option>`).join("")}</select>`;
-  const fcells=`<div class="h fz" style="right:${FZ[0]}px;padding:4px">${fsel("cust",customers.map(c=>[c.id,c.name]),"לקוח")}</div>
-    <div class="h fz" style="right:${FZ[1]}px;padding:4px">${fsel("dom",[...new Set(domains.map(d=>d.name))].map(n=>[n,n]),"סביבה")}</div>
-    <div class="h fz" style="right:${FZ[2]}px;padding:4px">${fsel("branch",BRANCHES.map(b=>[b.id,b.name]),"מחלקה")}</div>
-    <div class="h fz" style="right:${FZ[3]}px;padding:4px">${fsel("cat",CATEGORIES.map(c=>[c,c]),"קטגוריה")}</div>
-    <div class="h fz" style="right:${FZ[4]}px;padding:4px">${fsel("status",[["ok","פעיל · בלו\"ז"],["late","משימות אחרי היעד"],["over","עבר היעד"],["closed","סגור"]],"סטטוס")}</div>
-    <div class="h fz" style="right:${FZ[5]}px;padding:4px;border-left:2px solid var(--fg)"><input class="in gfi" data-gf="name" value="${esc(f.name)}" placeholder="פרויקט: חיפוש…" aria-label="סינון פרויקט" style="height:28px;padding:0 6px;font-size:12px"></div>
+  const fz=(i,inner,x="")=>`<div class="h fz" style="right:${FZ[i]}px;padding:4px${x}">${inner}</div>`,fh=inner=>`<div class="h" style="padding:4px">${inner}</div>`;
+  const fcells=fz(0,fsel("branch",BRANCHES.map(b=>[b.id,b.name]),"צוות"))+fz(1,fsel("cust",customers.map(c=>[c.id,c.name]),"לקוח"))
+    +fz(2,fsel("status",[["ok","פעיל · בלו\"ז"],["late","משימות אחרי היעד"],["over","עבר היעד"],["closed","סגור"]],"סטטוס"))
+    +fz(3,fsel("cbranch",[...new Set(projects.map(p=>p.cbranch))].map(n=>[n,n]),"ענף"))
+    +fz(4,`<input class="in gfi" data-gf="name" value="${esc(f.name)}" placeholder="פרויקט: חיפוש…" aria-label="סינון פרויקט" style="height:28px;padding:0 6px;font-size:12px">`,";border-left:2px solid var(--fg)")
+    +fh(fsel("cat",CATEGORIES.map(c=>[c,c]),"תחום"))+fh(fsel("dom",[...new Set(domains.map(d=>d.name))].map(n=>[n,n]),"סביבה"))+fh("").repeat(4)+`
     <div class="h" style="grid-column:span ${N};font-size:12px;color:var(--muted);font-weight:400;justify-content:flex-start;gap:8px">${rows.length} פרויקטים${Object.values(f).some(v=>v)?` · <button class="btn s" data-gfclear>נקה סינון</button>`:""}</div>`;
   const thick=i=>i&&per[i].g!==per[i-1].g;   // thicker line where the quarter / year changes
   const lines=per.map((p,i)=>i?`<i class="gl ${thick(i)?"thick":""}" style="right:${i/N*100}%"></i>`:"").join("")+(TODAY>=lo&&TODAY<hi?`<i class="gl today" style="right:${pos(parseIso(TODAY))}%"></i>`:"");
@@ -468,19 +490,22 @@ function ganttView(){
     <label style="display:flex;gap:6px;align-items:center;font-size:13px;color:var(--muted)"><input type="checkbox" id="showClosed" ${st.showClosed?"checked":""}> כולל פרויקטים סגורים</label></div>
   <div class="card" style="overflow:hidden"><div class="gbarnav"><button class="btn s" data-gshift="-1" title="${st.gz==="month"?"חודש אחורה":"רבעון אחורה"}">‹ אחורה</button><div class="gtop scroll" id="gTop" aria-hidden="true"><div id="gTopInner" style="height:1px"></div></div><button class="btn s" data-gshift="1" title="${st.gz==="month"?"חודש קדימה":"רבעון קדימה"}">קדימה ›</button></div>
   <div class="scroll" id="gScroll"><div class="ggrid" id="gGrid" style="--n:${N}">
-    ${["לקוח","סביבה","מחלקה","קטגוריה","סטטוס","פרויקט"].map((l,i)=>`<div class="h fz" style="grid-row:span 2;right:${FZ[i]}px${i===5?";border-left:2px solid var(--fg)":""}">${l}</div>`).join("")}
+    ${["צוות","לקוח","סטטוס","ענף לקוח","פרויקט"].map((l,i)=>`<div class="h fz" style="grid-row:span 2;right:${FZ[i]}px${i===4?";border-left:2px solid var(--fg)":""}">${l}</div>`).join("")}
+    ${["תחום","סביבה","מהנדס","ראש צוות","אינטגרציה","מיקוד לחודש הקרוב"].map(l=>`<div class="h" style="grid-row:span 2">${l}</div>`).join("")}
     ${groups.map((g,i)=>`<div class="q ${i?"thick":""}" style="grid-column:span ${g.n}">${g.l}</div>`).join("")}
     ${per.map((p,i)=>`<div class="m ${thick(i)?"thick":""} ${TODAY>=iso(p.s)&&TODAY<iso(p.e)?"today":""}">${p.l}</div>`).join("")}
     ${fcells}
     ${rows.map(({p,r})=>{const {domain,customer}=chainOf(p.id);const e=effDeadline(p.id);const over=isActive(p)&&e&&e.date<TODAY;const late=!over&&e&&r.to>e.date;
       const [s,c]=!isActive(p)?["סגור","var(--muted)"]:over?["עבר היעד","var(--stuck)"]:late?["משימות אחרי היעד","var(--work)"]:["פעיל · בלו\"ז","var(--done)"];
       const a=pos(parseIso(r.from)),b=pos(addD(parseIso(r.to),1));const avg=Math.round(r.p.reduce((x,y)=>x+y,0)/r.p.length);
-      return `<div class="fz" style="right:${FZ[0]}px">${customer.name}</div><div class="fz" style="right:${FZ[1]}px">${domain.name}</div><div class="fz" style="right:${FZ[2]}px">${bBadge(p)}</div><div class="fz" style="right:${FZ[3]}px;font-size:12px">${p.category}</div><div class="fz" style="right:${FZ[4]}px"><span class="status" style="background:${c}">${s}</span></div>
-      <div class="fz" style="right:${FZ[5]}px;border-left:2px solid var(--fg);flex-direction:column;align-items:flex-start;font-weight:600">${esc(p.name)}${e?`<small style="font-weight:400;color:var(--muted);${e.own?"":"font-style:italic"}">${e.own?"יעד":"יעד נגזר"} ${fmtDM(e.date)}${e.via?" · נדרש ל־"+esc(e.via.name):""}</small>`:""}</div>
-      <div class="tl">${lines}<button class="gbar" data-proj="${p.id}" style="right:${a}%;width:${Math.max(b-a,.6)}%;background:${isActive(p)?p.color:"#a8a091"}" title="${esc(p.name)} · ${fmtIso(r.from)} – ${fmtIso(r.to)}">${avg}% · ${fmtDM(r.from)} – ${fmtDM(r.to)}</button>${e&&e.date>=lo&&e.date<hi?`<i class="gdl ${over?"over":""}" style="right:${pos(parseIso(e.date))}%" title="יעד ${fmtIso(e.date)}"></i>`:""}</div>`}).join("")}
+      const ms=p.milestones.filter(m=>m.date>=lo&&m.date<hi);
+      return `<div class="fz" style="right:${FZ[0]}px">${bBadge(p)}</div><div class="fz" style="right:${FZ[1]}px">${customer.name}</div><div class="fz" style="right:${FZ[2]}px"><span class="status" style="background:${c}">${s}</span></div><div class="fz" style="right:${FZ[3]}px;font-size:12px">${esc(p.cbranch)}</div>
+      <div class="fz" style="right:${FZ[4]}px;border-left:2px solid var(--fg);flex-direction:column;align-items:flex-start;font-weight:600">${esc(p.name)}${e?`<small style="font-weight:400;color:var(--muted);${e.own?"":"font-style:italic"}">${e.own?"יעד":"יעד נגזר"} ${fmtDM(e.date)}${e.via?" · נדרש ל־"+esc(e.via.name):""}</small>`:""}</div>
+      <div style="font-size:12px">${p.category}</div><div><span class="tag" style="background:${domain.color}">${domain.name}</span></div><div>${personById(p.engineer).name}</div><div>${personById(p.lead).name}</div><div style="font-size:12px">${p.integ.map(i=>personById(i).name).join(" + ")}</div><div style="font-size:12px">${esc(p.focus)}</div>
+      <div class="tl" style="height:${44+30*ms.length}px">${lines}${ms.map((m,i)=>`<span class="ms ${m.state}" style="right:${pos(parseIso(m.date))}%;top:${40+30*i}px" title="${esc(m.title)} · ${fmtIso(m.date)}">${esc(m.title)}</span>`).join("")}<button class="gbar" data-proj="${p.id}" style="right:${a}%;width:${Math.max(b-a,.6)}%;background:${isActive(p)?p.color:"#a8a091"}" title="${esc(p.name)} · ${fmtIso(r.from)} – ${fmtIso(r.to)}">${avg}% · ${fmtDM(r.from)} – ${fmtDM(r.to)}</button>${e&&e.date>=lo&&e.date<hi?`<i class="gdl ${over?"over":""}" style="right:${pos(parseIso(e.date))}%" title="יעד ${fmtIso(e.date)}"></i>`:""}</div>`}).join("")}
   </div></div>
   <div class="gbarnav"><button class="btn s" data-gshift="-1">‹ אחורה</button><span style="flex:1;text-align:center;font-size:12px;color:var(--muted)">אחורה / קדימה מזיזים ${st.gz==="month"?"חודש":"רבעון"} · ‹ › למעלה מזיזים שנה · חיצי המקלדת ← → · הפסים גוללים את התצוגה</span><button class="btn s" data-gshift="1">קדימה ›</button></div></div>
-  <div class="legend"><span><i style="width:18px;height:0;border-top:2px dashed var(--stuck)"></i>היום</span><span><i style="width:3px;background:var(--fg)"></i>יעד (נגזר = נטוי)</span><span>אחוז = ממוצע ביצוע המשימות</span>${skip?`<span>${skip} פרויקטים ללא משימות / מחוץ לטווח</span>`:""}<span style="margin-inline-start:auto">לחיצה על פס פותחת את הפרויקט בטבלה</span></div>`;
+  <div class="legend"><span><i style="width:18px;height:0;border-top:2px dashed var(--stuck)"></i>היום</span><span><i style="width:3px;background:var(--fg)"></i>יעד (נגזר = נטוי)</span><span>אחוז = ממוצע ביצוע המשימות</span><span>אבן דרך:</span><span><i style="background:#1F5F7A;border:3px solid var(--done)"></i>בזמן / בוצע</span><span><i style="background:#1F5F7A;border:3px solid #F5D90A"></i>בסיכון</span><span><i style="background:#1F5F7A;border:3px solid var(--stuck)"></i>באיחור</span>${skip?`<span>${skip} פרויקטים ללא משימות / מחוץ לטווח</span>`:""}<span style="margin-inline-start:auto">לחיצה על פס פותחת את הפרויקט בטבלה</span></div>`;
 }
 
 // ---------- hub ----------
@@ -496,12 +521,15 @@ function hubView(){
   return `<div class="head"><h1>כל הלקוחות</h1><span style="font-size:13px;color:var(--muted)">${customers.length} לקוחות · ${domains.length} סביבות · ${projects.filter(isActive).length} פרויקטים פעילים · ${tasks.length} משימות (${tasks.filter(t=>t.percent_done<100).length} פתוחות · ${tasks.filter(t=>t.person_id===0&&t.percent_done<100).length} לא משובצות) · ${people.length} אנשי צוות</span><div class="acts"><button class="btn" data-go="board">לוח כל הצוות</button><button class="btn p" data-toast="לקוח חדש: שם + צבע">+ לקוח</button></div></div>
   <div class="cards">${customers.map(c=>{const ds=domains.filter(d=>d.customer_id===c.id);const prs=projects.filter(p=>ds.some(d=>d.id===p.domain_id));
     return `<article class="ccard" style="--c:${c.color}"><h2 style="display:flex;align-items:center;gap:8px"><button class="nav" style="padding:0;width:auto;font:inherit;font-weight:700" data-go="board" data-cust="${c.id}" title="כל הסביבות של ${c.name}">${c.name}</button><small style="margin-inline-start:auto;font-size:12px;color:var(--accent);font-weight:400">כניסה ללקוח ›</small></h2><div class="stats"><span><b>${ds.length}</b> סביבות</span><span><b>${prs.filter(isActive).length}</b> פרויקטים</span><span><b>${tasks.filter(t=>prs.some(p=>p.id===t.project_id)&&t.percent_done<100).length}</b> משימות פתוחות</span><span><b>${tasks.filter(t=>prs.some(p=>p.id===t.project_id)&&t.date>=iso(st.anchor)&&t.date<=iso(addD(st.anchor,4))&&!isSpan(t)).reduce((s,t)=>s+t.duration_min,0)/60}</b> שעות השבוע</span></div>
-    ${ds.map(d=>{const n=prs.filter(p=>p.domain_id===d.id);const bad=n.filter(p=>{const e=effDeadline(p.id);return isActive(p)&&e&&e.date<TODAY}).length;return `<button class="env" data-go="board" data-cust="${c.id}" data-dom="${d.id}"><i class="sw r" style="background:${d.color};width:14px;height:14px"></i><b>${d.name}</b><small>${n.filter(isActive).length} פרויקטים${bad?" · "+bad+" עבר היעד":""}${n.some(p=>!isActive(p))?" · "+n.filter(p=>!isActive(p)).length+" סגור":""}</small></button>`}).join("")}
-    <button class="btn" style="border-style:dashed;color:var(--accent)" data-toast="סביבה חדשה — צבע ייחודי נאכף בשמירה">+ סביבה</button></article>`}).join("")}</div>
+    ${(()=>{const act=prs.filter(isActive),open=st.hubMore.has(c.id);
+      return act.slice(0,open?act.length:10).map(p=>{const d=domById(p.domain_id);const e=effDeadline(p.id);const ts=tasks.filter(t=>t.project_id===p.id);const avg=Math.round(ts.reduce((s,t)=>s+t.percent_done,0)/(ts.length||1));
+        return `<button class="env" data-proj="${p.id}"><i class="sw" style="background:${p.color}"></i><b>${esc(p.name)}</b><span class="tag" style="background:${d.color}">${d.name}</span><small>${e&&e.date<TODAY?'<b style="color:var(--stuck)">עבר היעד</b> · ':""}${avg}%</small></button>`}).join("")
+        +(act.length>10?`<button class="btn s" data-more="${c.id}" aria-expanded="${open}">${open?"הצג פחות":`עוד ${act.length-10} פרויקטים`}</button>`:"")||`<div class="demo">אין פרויקטים פעילים</div>`})()}
+    <button class="btn" style="border-style:dashed;color:var(--accent)" data-toast="פרויקט חדש: שם, סביבה, צוות, יעד">+ פרויקט</button></article>`}).join("")}</div>
   <div class="two"><section class="card panel"><h2>מקרא צבעים · לקוח × סביבה</h2><div class="matrix" style="grid-template-columns:90px repeat(${envNames.length},minmax(0,1fr))"><div></div>${envNames.map(n=>`<div style="color:var(--muted)">${n}</div>`).join("")}
     ${customers.map(c=>`<div style="justify-content:flex-start;font-weight:600">${c.name}</div>`+envNames.map(n=>{const d=domains.find(x=>x.customer_id===c.id&&x.name===n);return `<div style="background:${d?d.color:"var(--bg)"}"></div>`}).join("")).join("")}</div><small style="color:var(--muted)">כל סביבה חייבת צבע ייחודי בכל המערכת. גרדיאנט מותר.</small></section>
   <section class="card panel"><h2>דורש תשומת לב</h2>${att.map(([l,c,t])=>`<div class="att"><span class="tag" style="background:${c};font-size:12px;padding:2px 8px;border-radius:3px">${l}</span>${esc(t)}</div>`).join("")||`<div class="demo">הכל בסדר</div>`}</section>
-  <section class="card panel"><h2>לפי מחלקה</h2>${BRANCHES.map(b=>{const prs=projects.filter(p=>p.branch===b.id&&isActive(p));const bad=prs.filter(p=>{const e=effDeadline(p.id);return e&&e.date<TODAY}).length;const avg=prs.length?Math.round(prs.reduce((s,p)=>{const ts=tasks.filter(t=>t.project_id===p.id);return s+(ts.length?ts.reduce((x,t)=>x+t.percent_done,0)/ts.length:0)},0)/prs.length):0;
+  <section class="card panel"><h2>לפי צוות</h2>${BRANCHES.map(b=>{const prs=projects.filter(p=>p.branch===b.id&&isActive(p));const bad=prs.filter(p=>{const e=effDeadline(p.id);return e&&e.date<TODAY}).length;const avg=prs.length?Math.round(prs.reduce((s,p)=>{const ts=tasks.filter(t=>t.project_id===p.id);return s+(ts.length?ts.reduce((x,t)=>x+t.percent_done,0)/ts.length:0)},0)/prs.length):0;
     return `<button class="att" style="border:0;width:100%;text-align:right;cursor:pointer;color:var(--fg)" data-branch="${b.id}"><span class="tag" style="background:${b.color};font-size:12px;padding:2px 8px;border-radius:3px">${b.name}</span><span>${prs.length} פרויקטים · ${people.filter(p=>p.branch===b.id).length} אנשים${bad?` · <b style="color:var(--stuck)">${bad} עבר היעד</b>`:""}</span><span class="bar" style="max-width:120px;margin-inline-start:auto"><i style="width:${avg}%"></i></span><span style="font-size:12px;width:34px">${avg}%</span></button>`}).join("")}
   <h2 style="margin-top:6px">לפי קטגוריה</h2><div style="display:flex;flex-wrap:wrap;gap:6px">${CATEGORIES.map(c=>`<button class="btn s" data-cat="${c}">${c} · ${projects.filter(p=>p.category===c&&isActive(p)).length}</button>`).join("")}</div></section></div>`;
 }
@@ -529,8 +557,10 @@ function openTask(t,isNew){
   const {project}=chainOf(t.project_id);const dom=domById(project.domain_id);
   const e=effDeadline(project.id);
   const ov=document.getElementById("overlay");
-  ov.innerHTML=`<div class="dim" data-close></div><aside class="drawer" aria-label="עריכת משימה"><div class="dh"><h2>${isNew?"משימה חדשה":"עריכת משימה"}</h2><small style="color:var(--muted)">${isNew?"":"#"+t.id}</small><div style="margin-inline-start:auto;display:flex;gap:6px">${isNew?"":`<button class="btn s" data-dup>שכפול</button>`}<button class="btn s" data-close aria-label="סגור">✕</button></div></div>
+  ov.innerHTML=`<div class="dim" data-close></div><aside class="drawer" aria-label="עריכת משימה"><div class="dh"><h2>${isNew?"משימה חדשה":"עריכת משימה"}</h2><small style="color:var(--muted)">${isNew?"":"#"+t.id}</small><div style="margin-inline-start:auto;display:flex;gap:6px">${isNew?"":`<button class="btn s" data-dup>שכפול</button>`}${isNew||t.parent_id?"":`<button class="btn s" data-sub>+ תת-משימה</button>`}<button class="btn s" data-close aria-label="סגור">✕</button></div></div>
   <div class="body">
+    ${t.parent_id?`<div class="note warn">תת-משימה של: <b>${esc((tasks.find(x=>x.id===t.parent_id)||{title:"—"}).title)}</b></div>`:""}
+    ${subsOf(t.id).length?`<div style="font-size:13px;color:var(--muted)">תתי-משימות (${subsOf(t.id).length}): ${subsOf(t.id).map(s=>esc(s.title)+" "+s.percent_done+"%").join(" · ")}</div>`:""}
     <label style="display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:600">כותרת<input id="fTitle" class="in" style="font-size:15px;font-weight:500" value="${esc(t.title)}"></label>
     <div class="form" style="grid-template-columns:repeat(3,1fr)">
       <label>לקוח<select id="fCust" class="in">${customers.map(c=>`<option value="${c.id}" ${c.id===dom.customer_id?"selected":""}>${c.name}</option>`).join("")}</select></label>
@@ -567,8 +597,9 @@ function openTask(t,isNew){
     return {title:$("fTitle").value.trim()||"משימה",project_id:+$("fProj").value,person_id:+$("fPerson").value,date:d,all_day:all,end_date:all?endFromDays(d,Math.max(1,+$("fDays").value||1)):null,start_min:all?0:+s[0]*60+ +s[1],duration_min:all?0:+$("fDur").value,description:$("fDesc").value,percent_done:+$("fProg").value}};
   ov.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>ov.innerHTML="");
   ov.querySelector("[data-save]").onclick=()=>{if(!+$("fProj").value)return toast("בחרו פרויקט פעיל");Object.assign(t,read());if(isNew)tasks.push(t);ov.innerHTML="";render();toast(isNew?"המשימה נוצרה":"נשמר")};
-  const del=ov.querySelector("[data-del]");if(del)del.onclick=()=>{tasks=tasks.filter(x=>x!==t);ov.innerHTML="";render();toast("המשימה נמחקה")};
+  const del=ov.querySelector("[data-del]");if(del)del.onclick=()=>{tasks=tasks.filter(x=>x!==t&&x.parent_id!==t.id);ov.innerHTML="";render();toast("המשימה נמחקה")};
   const dup=ov.querySelector("[data-dup]");if(dup)dup.onclick=()=>{const c={...t,...read(),id:nextId++};tasks.push(c);render();openTask(c,false);toast("שוכפל — ערכו את העותק")};
+  const sub=ov.querySelector("[data-sub]");if(sub)sub.onclick=()=>{st.open.add(t.id);openTask({id:nextId++,parent_id:t.id,project_id:t.project_id,person_id:t.person_id,date:t.date,start_min:t.start_min||540,duration_min:60,percent_done:0,title:"",description:""},true)};
   ov.querySelectorAll("[data-toast]").forEach(b=>b.onclick=()=>toast(b.dataset.toast));
 }
 function applyTemplate(pid){
@@ -602,7 +633,7 @@ function bind(){
   q("[data-mode]").forEach(b=>b.onclick=()=>{st.mode=b.dataset.mode;render()});
   q("[data-admin]").forEach(b=>b.onclick=()=>{st.admin=b.dataset.admin;render()});
   q(".gfi").forEach(el=>el[el.tagName==="INPUT"?"oninput":"onchange"]=()=>{st.gf[el.dataset.gf]=el.value;const pos=el.selectionStart;render();if(el.tagName==="INPUT"){const n=document.querySelector('.gfi[data-gf="name"]');n.focus();n.setSelectionRange(pos,pos)}});
-  const gfc=document.querySelector("[data-gfclear]");if(gfc)gfc.onclick=()=>{st.gf={cust:"",dom:"",branch:"",cat:"",status:"",name:""};render()};
+  const gfc=document.querySelector("[data-gfclear]");if(gfc)gfc.onclick=()=>{st.gf={cust:"",dom:"",branch:"",cat:"",status:"",name:"",cbranch:""};render()};
   q("[data-step]").forEach(b=>b.onclick=()=>{const n=+b.dataset.step;if(st.mode==="gantt"){if(n)st.gy+=n;else{st.gy=new Date().getFullYear();st.gm=new Date().getMonth()}}else st.anchor=n?addD(st.anchor,7*n):weekStart(new Date());render()});
   q("[data-gz]").forEach(b=>b.onclick=()=>{st.gz=b.dataset.gz;render()});
   const jd=document.getElementById("jumpD");if(jd)jd.onchange=()=>{if(jd.value){st.anchor=weekStart(parseIso(jd.value));render()}};
@@ -612,6 +643,9 @@ function bind(){
   q("[data-cell]").forEach(c=>c.onclick=()=>{const [pid,d]=c.dataset.cell.split("|");const pr=scopedProjects().find(isActive)||projects.find(isActive);openTask({id:nextId++,project_id:pr.id,person_id:+pid,date:d,start_min:540,duration_min:60,percent_done:0,title:"",description:""},true)});
   q("[data-newtask]").forEach(b=>b.onclick=()=>{const pr=b.dataset.newtask?projById(+b.dataset.newtask):(scopedProjects().find(isActive)||projects.find(isActive));openTask({id:nextId++,project_id:pr.id,person_id:0,date:iso(st.anchor),start_min:540,duration_min:60,percent_done:0,title:"",description:""},true)});
   q("[data-tpl]").forEach(b=>b.onclick=()=>applyTemplate(+b.dataset.tpl));
+  q("[data-sview]").forEach(b=>b.onclick=()=>{st.sideView=b.dataset.sview;render()});
+  q("[data-more]").forEach(b=>b.onclick=()=>{const id=+b.dataset.more;st.hubMore.has(id)?st.hubMore.delete(id):st.hubMore.add(id);render()});
+  q("[data-open]").forEach(b=>b.onclick=e=>{e.stopPropagation();const id=+b.dataset.open;st.open.has(id)?st.open.delete(id):st.open.add(id);render()});
   q("[data-close]").forEach(b=>b.onclick=()=>{const p=projById(+b.dataset.close);p.status=isActive(p)?"closed":"active";render();toast(isActive(p)?"הפרויקט נפתח מחדש":"הפרויקט נסגר (המשימות נשמרות)")});
   q("[data-cycle]").forEach(b=>b.onclick=()=>{const t=tasks.find(x=>x.id===+b.dataset.cycle);t.percent_done=t.percent_done>=100?0:Math.min(100,t.percent_done+25);render()});
   q("[data-proj]").forEach(b=>b.onclick=()=>{const p=projById(+b.dataset.proj);const d=domById(p.domain_id);st.custId=d.customer_id;st.domId=d.id;st.mode="table";st.search="";st.level="board";render();toast(`פותח את ${p.name} בטבלה`)});
