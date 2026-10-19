@@ -195,7 +195,11 @@ const projects=[
 const branchOf=p=>BRANCHES.find(b=>b.id===p.branch)||{name:"—",color:"var(--grey)"};
 const people=[{id:1,name:"דנה כהן",color:"#0086C0",user:"dana.c",branch:3},{id:2,name:"יוסי מזרחי",color:"#A25DDC",user:"yossi.m",branch:2},{id:3,name:"נועה ברק",color:"#00855F",user:"",branch:1}];
 const UNASSIGNED={id:0,name:"לא משובץ",color:"#A0A3B1"};
-let holidays=[{id:1,name:"ראש השנה",from:"2026-09-12",to:"2026-09-13"},{id:2,name:"יום כיפור",from:"2026-09-21",to:"2026-09-21"},{id:3,name:"סוכות",from:"2026-09-26",to:"2026-09-27"},{id:4,name:"שמחת תורה",from:"2026-10-15",to:"2026-10-15"}];
+let holidays=[{id:1,name:"ראש השנה",from:"2026-09-12",to:"2026-09-13"},{id:2,name:"יום כיפור",from:"2026-09-21",to:"2026-09-21"},{id:3,name:"סוכות",from:"2026-09-26",to:"2026-09-27"},{id:4,name:"שמחת תורה",from:"2026-10-15",to:"2026-10-15"},
+  // 2027 Israel days off (hebcal.com, Israel schedule)
+  {id:5,name:"פסח",from:"2027-04-22",to:"2027-04-22"},{id:6,name:"שביעי של פסח",from:"2027-04-28",to:"2027-04-28"},{id:7,name:"יום העצמאות",from:"2027-05-12",to:"2027-05-12"},
+  {id:8,name:"שבועות",from:"2027-06-11",to:"2027-06-11"},{id:9,name:"ראש השנה",from:"2027-10-02",to:"2027-10-03"},{id:10,name:"יום כיפור",from:"2027-10-11",to:"2027-10-11"},
+  {id:11,name:"סוכות",from:"2027-10-16",to:"2027-10-16"},{id:12,name:"שמחת תורה",from:"2027-10-23",to:"2027-10-23"}];
 const templates=[{id:1,name:"התקנת שרת",tasks:[{title:"סקירת לוגים",duration_min:60},{title:"בדיקת שירותים",duration_min:120},{title:"הקשחה",duration_min:150},{title:"תיעוד",duration_min:60}]},
   {id:2,name:"בדיקות בוקר",tasks:[{title:"ניטור",duration_min:30},{title:"גיבויים",duration_min:30}]}];
 let tasks=[
