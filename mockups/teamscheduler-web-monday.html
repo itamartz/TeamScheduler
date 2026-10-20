@@ -159,6 +159,7 @@ textarea.in{height:auto;padding:8px 10px;resize:vertical}
 .demo{font-size:12px;color:var(--muted);padding:6px 10px;border:1px dashed var(--line2);border-radius:4px}
 /* milestone box (Excel look): border = state */
 .ms{position:absolute;height:24px;border-radius:5px;background:#1F5F7A;color:#fff;font-size:11px;display:flex;align-items:center;padding:0 8px;white-space:nowrap;border:3px solid var(--done);transform:translateX(50%)}
+.ms{font:inherit;font-size:11px;cursor:pointer}.addms{border:0;background:none;color:var(--accent,#0073EA);font:inherit;font-size:11px;font-weight:400;cursor:pointer;padding:0}
 .ms.risk{border-color:#F5D90A}.ms.late{border-color:var(--stuck)}
 .caret{background:none;border:0;padding:0 6px 0 2px;color:var(--muted);font-size:12px}
 .side .seg{display:flex;margin:0 6px 4px}.side .seg button{flex:1;padding:6px 4px;font-size:12px}
@@ -520,9 +521,9 @@ function ganttView(){
       const a=pos(parseIso(r.from)),b=pos(addD(parseIso(r.to),1));const avg=Math.round(r.p.reduce((x,y)=>x+y,0)/r.p.length);
       const ms=p.milestones.filter(m=>m.date>=lo&&m.date<hi);
       return `<div class="fz" style="right:${FZ[0]}px">${bBadge(p)}</div><div class="fz" style="right:${FZ[1]}px">${customer.name}</div><div class="fz" style="right:${FZ[2]}px"><span class="status" style="background:${c}">${s}</span></div><div class="fz" style="right:${FZ[3]}px;font-size:12px">${esc(p.cbranch)}</div>
-      <div class="fz" data-pn="${p.id}" style="right:${FZ[4]}px;border-left:2px solid var(--fg);flex-direction:column;align-items:flex-start;font-weight:600">${esc(p.name)}${e?`<small style="font-weight:400;color:var(--muted);${e.own?"":"font-style:italic"}">${e.own?"יעד":"יעד נגזר"} ${fmtDM(e.date)}${e.via?" · נדרש ל־"+esc(e.via.name):""}</small>`:""}</div>
+      <div class="fz" data-pn="${p.id}" style="right:${FZ[4]}px;border-left:2px solid var(--fg);flex-direction:column;align-items:flex-start;font-weight:600">${esc(p.name)}${e?`<small style="font-weight:400;color:var(--muted);${e.own?"":"font-style:italic"}">${e.own?"יעד":"יעד נגזר"} ${fmtDM(e.date)}${e.via?" · נדרש ל־"+esc(e.via.name):""}</small>`:""}<button class="addms" data-addms="${p.id}">+ אבן דרך</button></div>
       <div style="font-size:12px">${p.category}</div><div><span class="tag" style="background:${domain.color}">${domain.name}</span></div><div>${personById(p.engineer).name}</div><div>${personById(p.lead).name}</div><div style="font-size:12px">${p.integ.map(i=>personById(i).name).join(" + ")}</div><div style="font-size:12px">${esc(p.focus)}</div>
-      <div class="tl" style="height:${44+30*ms.length}px">${lines}${ms.map((m,i)=>`<span class="ms ${m.state}" style="right:${pos(parseIso(m.date))}%;top:${40+30*i}px" title="${esc(m.title)} · ${fmtIso(m.date)}">${esc(m.title)}</span>`).join("")}<button class="gbar" data-proj="${p.id}" style="right:${a}%;width:${Math.max(b-a,.6)}%;background:${isActive(p)?p.color:"#a8a091"}" title="${esc(p.name)} · ${fmtIso(r.from)} – ${fmtIso(r.to)}">${avg}% · ${fmtDM(r.from)} – ${fmtDM(r.to)}</button>${e&&e.date>=lo&&e.date<hi?`<i class="gdl ${over?"over":""}" style="right:${pos(parseIso(e.date))}%" title="יעד ${fmtIso(e.date)}"></i>`:""}</div>`}).join("")}
+      <div class="tl" style="height:${44+30*ms.length}px">${lines}${ms.map((m,i)=>`<button class="ms ${m.state}" data-ms="${p.id}:${p.milestones.indexOf(m)}" style="right:${pos(parseIso(m.date))}%;top:${40+30*i}px" title="${esc(m.title)} · ${fmtIso(m.date)} · לחצו לעריכה">${esc(m.title)}</button>`).join("")}<button class="gbar" data-proj="${p.id}" style="right:${a}%;width:${Math.max(b-a,.6)}%;background:${isActive(p)?p.color:"#a8a091"}" title="${esc(p.name)} · ${fmtIso(r.from)} – ${fmtIso(r.to)}">${avg}% · ${fmtDM(r.from)} – ${fmtDM(r.to)}</button>${e&&e.date>=lo&&e.date<hi?`<i class="gdl ${over?"over":""}" style="right:${pos(parseIso(e.date))}%" title="יעד ${fmtIso(e.date)}"></i>`:""}</div>`}).join("")}
   </div></div>
   <div class="gbarnav"><button class="btn s" data-gshift="-1">‹ אחורה</button><span style="flex:1;text-align:center;font-size:12px;color:var(--muted)">אחורה / קדימה מזיזים ${st.gz==="month"?"חודש":"רבעון"} · ‹ › למעלה מזיזים שנה · חיצי המקלדת ← → · הפסים גוללים את התצוגה</span><button class="btn s" data-gshift="1">קדימה ›</button></div></div>
   <div class="legend"><span><i style="width:18px;height:0;border-top:2px dashed var(--stuck)"></i>היום</span><span><i style="width:3px;background:var(--fg)"></i>יעד (נגזר = נטוי)</span><span>אחוז = ממוצע ביצוע המשימות</span><span>אבן דרך:</span><span><i style="background:#1F5F7A;border:3px solid var(--done)"></i>בזמן / בוצע</span><span><i style="background:#1F5F7A;border:3px solid #F5D90A"></i>בסיכון</span><span><i style="background:#1F5F7A;border:3px solid var(--stuck)"></i>באיחור</span>${skip?`<span>${skip} פרויקטים ללא משימות / מחוץ לטווח</span>`:""}<span style="margin-inline-start:auto">לחיצה על פס פותחת את הפרויקט בטבלה</span></div>`;
@@ -623,6 +624,19 @@ function openTask(t,isNew){
   ov.querySelectorAll("[data-toast]").forEach(b=>b.onclick=()=>toast(b.dataset.toast));
   if(st.ids)markIds(ov);
 }
+function openMilestone(p,m){
+  const ov=document.getElementById("overlay");const isNew=!m;m=m||{title:"",date:iso(st.anchor),state:"ok"};
+  ov.innerHTML=`<div class="dim" data-close></div><aside class="drawer" aria-label="אבן דרך"><div class="dh"><h2>${isNew?"אבן דרך חדשה":"עריכת אבן דרך"} · ${esc(p.name)}</h2><button class="btn s" data-close style="margin-inline-start:auto" aria-label="סגור">✕</button></div>
+  <div class="body"><div class="form" style="grid-template-columns:1fr"><label>שם<input id="mTitle" class="in" value="${esc(m.title)}" placeholder="למשל: שליחה ללקוח"></label>
+  <label>תאריך<input id="mDate" class="in" type="date" value="${m.date}"></label>
+  <label>מצב<select id="mState" class="in">${[["ok","בזמן / בוצע"],["risk","בסיכון"],["late","באיחור"]].map(([k,l])=>`<option value="${k}" ${k===m.state?"selected":""}>${l}</option>`).join("")}</select></label></div></div>
+  <div class="df"><button class="btn p" data-save>שמירה</button><button class="btn" data-close>ביטול</button>${isNew?"":`<button class="btn danger" style="margin-inline-start:auto" data-del>מחיקה</button>`}</div></aside>`;
+  ov.querySelectorAll("[data-close]").forEach(b=>b.onclick=()=>ov.innerHTML="");
+  ov.querySelector("[data-save]").onclick=()=>{if(!mDate.value)return toast("בחרו תאריך");Object.assign(m,{title:mTitle.value.trim()||"אבן דרך",date:mDate.value,state:mState.value});
+    if(isNew)p.milestones.push(m);p.milestones.sort((a,b)=>a.date.localeCompare(b.date));ov.innerHTML="";render();toast(isNew?"אבן הדרך נוספה":"נשמר")};
+  const del=ov.querySelector("[data-del]");if(del)del.onclick=()=>{p.milestones=p.milestones.filter(x=>x!==m);ov.innerHTML="";render();toast("אבן הדרך נמחקה")};
+  if(st.ids)markIds(ov);
+}
 function applyTemplate(pid){
   const ov=document.getElementById("overlay");const p=projById(pid);
   ov.innerHTML=`<div class="dim" data-close></div><aside class="drawer"><div class="dh"><h2>החל תבנית על ${esc(p.name)}</h2><button class="btn s" data-close style="margin-inline-start:auto" aria-label="סגור">✕</button></div>
@@ -640,6 +654,8 @@ function applyTemplate(pid){
 // ---------- events ----------
 function bind(){
   const q=s=>document.querySelectorAll(s);
+  q("[data-addms]").forEach(b=>b.onclick=()=>openMilestone(projById(+b.dataset.addms)));
+  q("[data-ms]").forEach(b=>b.onclick=()=>{const [pid,i]=b.dataset.ms.split(":").map(Number);const p=projById(pid);openMilestone(p,p.milestones[i])});
   q("[data-side]").forEach(b=>b.onclick=()=>{st.sideOpen=!st.sideOpen;render()});
   // gantt: top scrollbar mirrors the real one; ‹ › buttons and keyboard arrows step one month column (RTL: scrollLeft goes negative)
   const gs=document.getElementById("gScroll"),gt=document.getElementById("gTop");
